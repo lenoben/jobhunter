@@ -1,0 +1,71 @@
+{
+  "name": "Max Mustermann",
+  "headline": "Software Developer | Backend & Cloud",
+  "contact": {
+    "address": "Musterstraße 1, 68159 Mannheim, Germany",
+    "phone": "+49 170 0000000",
+    "email": "max.mustermann@example.com",
+    "links": ["github.com/example", "example.com"]
+  },
+  "summary": "Software developer focused on backend systems in Go and Python. Experienced with REST APIs, PostgreSQL and containerised deployments; I like owning the whole lifecycle, from requirements to production. Based in Mannheim, German at C1.",
+  "experience": [
+    {
+      "from": "02/2025", "to": "present",
+      "title": "Full-Stack Developer (part-time)",
+      "org": "Example Non-Profit GmbH", "place": "Ludwigshafen am Rhein",
+      "bullets": [
+        "Built a bilingual (DE/EN) website with admin dashboard and CMS in Go and PostgreSQL",
+        "Introduced CI/CD with GitHub Actions; deployments via Docker Compose",
+        "Designed with GDPR in mind, including consent and deletion workflows"
+      ],
+      "tech": ["Go", "PostgreSQL", "Docker Compose", "GitHub Actions"]
+    },
+    {
+      "from": "06/2024", "to": "01/2025",
+      "title": "Application Developer (project work)",
+      "org": "Musterfirma Süd GmbH", "place": "Remote",
+      "bullets": [
+        "Delivered web applications with React, Next.js and TypeScript for mid-sized clients",
+        "Maintained web servers; reduced downtime with monitoring and automated backups"
+      ],
+      "tech": ["React", "Next.js", "TypeScript"]
+    },
+    {
+      "from": "07/2023", "to": "09/2023",
+      "title": "Software Development Intern",
+      "org": "Example Payments AG", "place": "Munich",
+      "bullets": [
+        "Wrote automated load tests for a mobile banking app",
+        "Implemented Dart interoperability with a C library"
+      ],
+      "tech": ["Dart", "Flutter", "C"]
+    }
+  ],
+  "education": [
+    {
+      "from": "09/2020", "to": "06/2024",
+      "title": "B.Sc. Computer Science – grade 1.7 (German scale)",
+      "org": "Example University of Applied Sciences", "place": "Example City",
+      "details": ["Thesis: sentiment analysis in C++ with mlpack"]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Booking calendar",
+      "url": "github.com/example/calendar",
+      "description": "Availability calendar with booking requests, REST API, signed sessions and an installable PWA with offline fallback.",
+      "tech": ["Go", "chi", "PostgreSQL", "Docker"]
+    }
+  ],
+  "skills": [
+    {"group": "Languages", "items": ["Go", "TypeScript", "Python", "C++", "SQL"]},
+    {"group": "Frameworks", "items": ["React", "Next.js", "SvelteKit", "Fastify"]},
+    {"group": "DevOps", "items": ["Docker", "GitHub Actions", "Nginx", "Linux"]}
+  ],
+  "languages": [
+    {"language": "English", "level": "Native"},
+    {"language": "German", "level": "C1", "note": "DSH-2"}
+  ],
+  "certificates": [],
+  "inferred": []
+}

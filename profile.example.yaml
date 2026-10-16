@@ -1,0 +1,96 @@
+# Copy to profile/profile.yaml and fill in. profile/ is gitignored (R4).
+# Everything in the generated CVs and cover letters comes from this file (R5) —
+# keep it truthful and complete. Dates: "MM/YYYY"; use "present" for ongoing roles.
+
+personal:
+  name: "Max Mustermann"
+  address:
+    street: "Musterstraße 1"
+    postal_code: "68159"
+    city: "Mannheim"
+    country: "Deutschland"
+  email: "<YOUR_ADDRESS>@myyahoo.com"   # TODO: fill in your Yahoo address (usually SEND_MAIL_ADDRESS in .env)
+  phone: "+49 170 0000000"
+  website: "https://example.com"        # optional
+  linkedin: "https://linkedin.com/in/example"   # optional
+  github: "https://github.com/example"  # optional
+  nationality: null                     # optional — only shown if set
+  birthdate: null                       # optional, "DD.MM.YYYY"
+  photo: null                           # optional, e.g. "profile/photo.jpg"
+
+summary_de: >
+  Softwareentwickler mit Schwerpunkt Backend und Python …
+summary_en: >
+  Software developer focused on backend systems and Python …
+
+experience:
+  - company: "Beispiel GmbH"
+    role: "Werkstudent Softwareentwicklung"
+    role_en: "Working Student, Software Development"
+    city: "Mannheim"
+    from: "10/2023"
+    to: "present"
+    bullets_de:
+      - "REST-API mit FastAPI entwickelt, die … verarbeitet"
+    bullets_en:
+      - "Built a FastAPI REST API that processes …"
+    tech: ["Python", "FastAPI", "PostgreSQL", "Docker"]
+
+education:
+  - institution: "Hochschule Beispiel"
+    degree: "B.Sc. Informatik"
+    degree_en: "B.Sc. Computer Science"
+    city: "Mannheim"
+    from: "10/2020"
+    to: "09/2024"
+    grade: "1,8"                        # optional
+    grade_de: null                      # optional: German-scale equivalent of a foreign grade (e.g. via modified Bavarian formula)
+    focus_de: []                        # optional: German course names for German letters
+    thesis: null                        # optional
+    focus: ["Software Engineering", "Machine Learning"]   # optional
+
+skills:
+  languages: ["Python", "Go", "TypeScript"]
+  frameworks: ["FastAPI", "SvelteKit", "Flutter"]
+  data_ai: ["PyTorch", "pandas", "LLM APIs"]
+  devops: ["Docker", "GitHub Actions", "Linux"]
+  databases: ["PostgreSQL", "SQLite"]
+
+languages:                              # spoken languages, CEFR levels
+  - language: "Deutsch"
+    language_en: "German"
+    level: "C1"
+    certificate: "DSH-2"                # optional
+  - language: "Englisch"
+    language_en: "English"
+    level: "C2"
+    certificate: null
+
+projects:
+  - name: "JobHunter"
+    url: "https://github.com/example/jobhunter"
+    description_de: "Lokaler Assistent für die Jobsuche …"
+    description_en: "Local job-search assistant …"
+    tech: ["Python", "SQLite", "SvelteKit"]
+
+certificates:
+  - name: "AWS Certified Cloud Practitioner"
+    issuer: "Amazon Web Services"
+    date: "05/2024"
+
+availability:
+  hours_per_week: 40
+  start_date: "ab sofort"               # or "01.01.2027"
+
+# Motivation per search-filter name (opens cover letters; empty = letters use profile facts and
+# the run reminds you to fill it in).
+motivation:
+  "Software / Backend": "Ich baue gern robuste Backend-Systeme, die …"
+  "AI / LLM / Data": ""
+
+work_authorization: >
+  Write this yourself, e.g. your residence permit status.
+
+preferences:
+  salary_text: "55.000 € brutto p.a."   # used only where a form asks
+  notes: ""

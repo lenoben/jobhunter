@@ -1,0 +1,113 @@
+{
+  "name": "Max Mustermann",
+  "headline": "Softwareentwickler | Backend & Cloud",
+  "contact": {
+    "address": "Musterstraße 1, 68159 Mannheim",
+    "phone": "+49 170 0000000",
+    "email": "max.mustermann@example.com",
+    "links": ["github.com/example", "example.com"]
+  },
+  "personal": [
+    {"label": "Geburtsdatum", "value": "01.01.2000"},
+    {"label": "Verfügbarkeit", "value": "ab 01.02.2027, 40 Std./Woche"}
+  ],
+  "summary": "Softwareentwickler mit Schwerpunkt auf Backend-Systemen in Go und Python. Erfahrung mit REST-APIs, PostgreSQL und containerisierten Deployments; arbeite gern über den gesamten Lebenszyklus – von der Anforderungsanalyse über die Entwicklung bis zum Betrieb. Wohnhaft in Mannheim, Deutsch auf C1-Niveau.",
+  "experience": [
+    {
+      "from": "02/2025", "to": "present",
+      "title": "Full-Stack-Entwickler (Teilzeit)",
+      "org": "Beispiel Gemeinnützige GmbH", "place": "Ludwigshafen am Rhein",
+      "bullets": [
+        "Zweisprachige Website (DE/EN) mit Admin-Dashboard und CMS in Go und PostgreSQL entwickelt",
+        "CI/CD mit GitHub Actions eingeführt; Deployments über Docker Compose",
+        "Datenschutzkonforme Gestaltung gemäß DSGVO, inkl. Einwilligungs- und Löschprozessen"
+      ],
+      "tech": ["Go", "PostgreSQL", "Docker Compose", "GitHub Actions"]
+    },
+    {
+      "from": "06/2024", "to": "01/2025",
+      "title": "Anwendungsentwickler (Projektarbeit)",
+      "org": "Musterfirma Süd GmbH", "place": "Remote",
+      "bullets": [
+        "Webanwendungen mit React, Next.js und TypeScript für mittelständische Kunden umgesetzt",
+        "Webserver betreut, Ausfallzeiten durch Monitoring und automatische Backups reduziert",
+        "Anforderungen in Workshops mit Kund:innen aufgenommen und in Tickets übersetzt"
+      ],
+      "tech": ["React", "Next.js", "TypeScript", "PostgreSQL"]
+    },
+    {
+      "from": "09/2023", "to": "06/2024",
+      "title": "Studentische Hilfskraft – Datenbanklabor",
+      "org": "Hochschule Beispielstadt", "place": "Beispielstadt",
+      "bullets": [
+        "Übungen zu SQL und Datenbankentwurf begleitet, über 200 Studierende unterstützt",
+        "Fehleranalyse bei langsamen Abfragen und Serverproblemen im Laborbetrieb"
+      ],
+      "tech": ["SQL", "PostgreSQL", "MySQL"]
+    },
+    {
+      "from": "07/2023", "to": "09/2023",
+      "title": "Praktikant Softwareentwicklung",
+      "org": "Zahlungsdienst Österreich-Deutschland AG", "place": "München",
+      "bullets": [
+        "Automatisierte Lasttests für eine mobile Banking-App geschrieben",
+        "Interoperabilität zwischen Dart und einer C-Bibliothek umgesetzt",
+        "Sprintplanung und Aufgabenverteilung im Team übernommen"
+      ],
+      "tech": ["Dart", "Flutter", "C"]
+    }
+  ],
+  "education": [
+    {
+      "from": "09/2020", "to": "06/2024",
+      "title": "B.Sc. Informatik – Note 1,7",
+      "org": "Hochschule Beispielstadt", "place": "Beispielstadt",
+      "details": [
+        "Schwerpunkte: Datenstrukturen, Algorithmen, Softwaretechnik, Datenbanksysteme, Betriebssysteme",
+        "Abschlussarbeit: Sentiment-Analyse in C++ mit mlpack"
+      ]
+    },
+    {
+      "from": "04/2025", "to": "09/2026",
+      "title": "Deutschkurs mit Abschluss DSH-2 (C1)",
+      "org": "Universität Heidelberg", "place": "Heidelberg",
+      "details": []
+    }
+  ],
+  "projects": [
+    {
+      "name": "Buchungskalender",
+      "url": "github.com/example/kalender",
+      "description": "Verfügbarkeitskalender mit Buchungsanfragen, REST-API, signierten Sessions und installierbarer PWA mit Offline-Fallback.",
+      "tech": ["Go", "chi", "PostgreSQL", "Docker"]
+    },
+    {
+      "name": "Bildverarbeitungsbibliothek",
+      "url": "github.com/example/bildverarbeitung",
+      "description": "Algorithmen von Grund auf in C/C++: Farbraumkonvertierung, Canny-Kantenerkennung, morphologische Operationen, Connected-Component-Labeling.",
+      "tech": ["C", "C++", "CMake"]
+    },
+    {
+      "name": "Reise-Marktplatz",
+      "url": "example.com",
+      "description": "Full-Stack-Monorepo für Veranstaltungen, Hotels und Flüge, dreisprachig (DE/EN/ES).",
+      "tech": ["Next.js", "TypeScript", "Fastify", "PostgreSQL", "Drizzle ORM"]
+    }
+  ],
+  "skills": [
+    {"group": "Sprachen", "items": ["Go", "TypeScript", "Python", "C++", "SQL"]},
+    {"group": "Frameworks", "items": ["React", "Next.js", "SvelteKit", "Fastify", "Flutter"]},
+    {"group": "Datenbanken", "items": ["PostgreSQL", "MySQL", "SQLite", "MongoDB"]},
+    {"group": "DevOps", "items": ["Docker", "Docker Compose", "GitHub Actions", "Nginx", "Linux"]},
+    {"group": "KI / Daten", "items": ["scikit-learn", "PyTorch", "mlpack", "OpenCV"]}
+  ],
+  "languages": [
+    {"language": "Deutsch", "level": "C1", "note": "DSH-2"},
+    {"language": "Englisch", "level": "Muttersprache"}
+  ],
+  "certificates": [
+    {"date": "12/2024", "name": "Auszeichnung „Top 25“ der Bachelorabsolvent:innen", "issuer": "Hochschule Beispielstadt"},
+    {"date": "10/2026", "name": "DSH-2 (C1)", "issuer": "Universität Heidelberg"}
+  ],
+  "inferred": []
+}

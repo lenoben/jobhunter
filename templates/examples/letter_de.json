@@ -1,0 +1,24 @@
+{
+  "sender": {
+    "name": "Max Mustermann",
+    "street": "Musterstraße 1",
+    "city": "68159 Mannheim",
+    "phone": "+49 170 0000000",
+    "email": "max.mustermann@example.com"
+  },
+  "recipient": {
+    "lines": ["Müller & Söhne Software GmbH", "Personalabteilung", "Frau Jördis Weiß", "Königstraße 12", "70173 Stuttgart"]
+  },
+  "place": "Mannheim",
+  "subject": "Bewerbung als Backend-Entwickler (m/w/d) – Kennziffer 2026-ÄÖÜ-17",
+  "salutation": "Sehr geehrte Frau Weiß,",
+  "body": [
+    "Logistikprozesse zuverlässig in Software abzubilden, reizt mich an Ihrer Plattform besonders – und mit Go und PostgreSQL setzen Sie genau auf die Technologien, mit denen ich in den letzten zwei Jahren Backend-Systeme aufgebaut habe.",
+    "Derzeit verantworte ich als Full-Stack-Entwickler die Website einer gemeinnützigen Organisation: von der Datenbank über die REST-API bis zum Deployment mit Docker Compose und GitHub Actions. Dabei lege ich Wert auf saubere Schnittstellen, nachvollziehbare Tests und eine DSGVO-konforme Datenverarbeitung.",
+    "Zuvor habe ich in Kundenprojekten Webanwendungen mit React, Next.js und TypeScript umgesetzt und Webserver betreut. Als studentische Hilfskraft im Datenbanklabor habe ich gelernt, Fehler in langsamen Abfragen systematisch zu finden und verständlich zu erklären.",
+    "Ich wohne bereits in Mannheim, spreche Deutsch auf C1-Niveau und kann ab sofort in Vollzeit (40 Stunden pro Woche) beginnen. Über die Einladung zu einem persönlichen Gespräch freue ich mich."
+  ],
+  "closing": "Mit freundlichen Grüßen",
+  "attachments": ["Lebenslauf", "Bachelorzeugnis", "Sprachzertifikat DSH-2"],
+  "inferred": []
+}

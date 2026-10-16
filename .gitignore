@@ -1,0 +1,30 @@
+# Secrets (R3)
+.env
+.env.*
+!.env.example
+
+# Personal data (R4)
+data/
+profile/
+output/
+logs/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node / UI
+node_modules/
+ui/.svelte-kit/
+ui/build/
+
+# Claude Code: personal, machine-specific permissions (the shared ones are .claude/settings.json)
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

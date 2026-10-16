@@ -1,0 +1,24 @@
+{
+  "sender": {
+    "name": "Max Mustermann",
+    "street": "Musterstraße 1",
+    "city": "68159 Mannheim, Germany",
+    "phone": "+49 170 0000000",
+    "email": "max.mustermann@example.com"
+  },
+  "recipient": {
+    "lines": ["Example Cloud GmbH", "Talent Acquisition", "Friedrichstraße 100", "10117 Berlin"]
+  },
+  "place": "Mannheim",
+  "subject": "Application: Backend Engineer (Go) – ref. BE-2026-04",
+  "salutation": "Dear Hiring Team,",
+  "body": [
+    "Your platform team's focus on developer tooling is what drew me to this Backend Engineer role: building reliable Go services on PostgreSQL is exactly what I have been doing for the past two years.",
+    "As the sole developer for a non-profit's web presence, I designed and built a bilingual website with an admin dashboard and CMS in Go and PostgreSQL, and introduced CI/CD with GitHub Actions and Docker Compose deployments.",
+    "Before that, I delivered React and Next.js applications for clients and maintained their servers. I enjoy owning features end to end and explaining technical trade-offs clearly.",
+    "I can start immediately, full-time (40 hours per week), and would welcome the chance to discuss how I can contribute to your team."
+  ],
+  "closing": "Kind regards",
+  "attachments": ["CV"],
+  "inferred": []
+}
