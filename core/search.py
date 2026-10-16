@@ -107,6 +107,32 @@ def run_search(conn: sqlite3.Connection, f: SearchFilter, sources: list[str] | N
     return result
 
 
+def store_for_review(conn: sqlite3.Connection, postings: list[JobPosting]) -> list[JobPosting]:
+    """Alert jobs that match no active filter's keywords (user request 2026-10-18: keep them all).
+    They are stored as needs_attention / alert_review — not evaluated, so no tokens are used —
+    until the user sends them to evaluation or dismisses them in the UI. Dedup (R8) and the §5a
+    checks apply as for every job; a §5a hit keeps its own, more specific reason."""
+    threshold = float(get_settings(conn).get("blue_card_salary_min", "45934.20"))
+    stored, keys = [], set()
+    for p in postings:
+        p.canonical_url = canonical_url(p.url)
+        p.fingerprint = fingerprint(p.company, p.title, p.location, p.canonical_url)
+        if p.canonical_url in keys or p.fingerprint in keys or jobs.find_seen(conn, p.canonical_url, p.fingerprint):
+            continue
+        keys.update((p.canonical_url, p.fingerprint))
+        note = _screen(p, threshold)
+        if p.status != "needs_attention":
+            p.status, p.attention_reason = "needs_attention", "alert_review"
+            note = "alert_review: matches no filter's keywords — evaluate or dismiss" + (f"; {note}" if note else "")
+        try:
+            p.id = jobs.insert_job(conn, p, note)
+        except sqlite3.IntegrityError:
+            continue
+        stored.append(p)
+    conn.commit()
+    return stored
+
+
 def _screen(p: JobPosting, threshold: float) -> str | None:
     """Apply §5a checks; sets salary fields and status. Returns a status_history note."""
     salary = checks.check_salary(p.salary_text, threshold)

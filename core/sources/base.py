@@ -105,6 +105,23 @@ def html_to_text(raw: str | None) -> str | None:
     return re.sub(r"\n\s*\n\s*\n+", "\n\n", s).strip()
 
 
+def _keyword_re(kw: str) -> re.Pattern | None:
+    tokens = re.split(r"[\s\-_/]+", kw.casefold().strip())
+    tokens = [t for t in tokens if t]
+    # starts at a word boundary ("Go Developer" ≠ "Django Developer"); a space may be missing
+    return re.compile(r"(?<!\w)" + r" ?".join(map(re.escape, tokens))) if tokens else None
+
+
 def keyword_match(text: str, keywords: list[str]) -> bool:
+    """Case-insensitive, and hyphen/space variants match (2026-10-18: such titles were missed):
+    "Full Stack Developer" matches "Full-Stack Developer" and "Fullstack Developer"; "Fullstack"
+    matches "Full-Stack"; "Softwareentwickler" matches "Software-Entwickler"."""
     t = text.casefold()
-    return any(k.casefold() in t for k in keywords)
+    spaced = re.sub(r"[\s\-_/]+", " ", t)     # "full-stack" → "full stack"
+    joined = re.sub(r"(?<=\w)-(?=\w)", "", t)  # "software-entwickler" → "softwareentwickler"
+    joined = re.sub(r"[\s_/]+", " ", joined)
+    for kw in keywords:
+        pattern = _keyword_re(kw)
+        if pattern and (pattern.search(spaced) or pattern.search(joined)):
+            return True
+    return False

@@ -90,6 +90,49 @@ def test_parse_alert_format():
     assert canonical_url(jobs[0].url) == "https://linkedin.com/jobs/view/4000000001"
 
 
+def test_parse_apply_with_profile_lines():
+    """2026-10-18: 'Apply with resume & profile' / 'Apply now' / 'N company alumni' under the
+    location shifted every field by one (title = company, company = city)."""
+    m = mail("jobalerts-noreply@linkedin.com", "x", f"""
+{SEP}
+
+Full Stack Product Engineer (m/w/d) – Example Schule
+Example
+Germany
+
+1 school alum
+Apply with resume & profile
+View job: https://www.linkedin.com/comm/jobs/view/4000000005/?trackingId=a
+
+{SEP}
+
+Full-Stack Developer
+Funded GmbH
+Munich
+7 company alumni
+Apply now
+View job: https://www.linkedin.com/comm/jobs/view/4000000006/?trackingId=b
+""")
+    assert [(j.title, j.company, j.location) for j in ea.parse_linkedin(m)] == [
+        ("Full Stack Product Engineer (m/w/d) – Example Schule", "Example", "Germany"),
+        ("Full-Stack Developer", "Funded GmbH", "Munich")]
+
+
+@pytest.mark.parametrize("title,keywords,expected", [
+    ("Full-Stack Developer (m/w/d)", ["Full Stack Developer"], True),
+    ("Fullstack Developer", ["Full Stack Developer"], True),
+    ("Senior Full-Stack Engineer", ["Fullstack"], True),
+    ("Software-Entwickler Backend", ["Softwareentwickler"], True),
+    ("Firmwareentwickler (m/w/d)", ["Firmware Entwickler"], True),
+    ("Django Developer", ["Go Developer"], False),
+    ("Golang Developer", ["Go Developer"], False),
+    ("Data Engineer", ["DevOps Engineer"], False),
+])
+def test_keyword_match_variants(title, keywords, expected):
+    from core.sources.base import keyword_match
+    assert keyword_match(title, keywords) is expected
+
+
 def test_parse_recommendation_and_hiring_formats():
     [rec] = ea.parse_linkedin(RECOMMENDATION)
     assert (rec.title, rec.company, rec.location) == ("Embedded Software Engineer (w/m/d) C", "TRUMPF", "Freiburg")
@@ -167,6 +210,18 @@ def test_read_only_and_selection(conn, imap):
 def test_unmatched_jobs_are_not_returned(conn, imap):
     jobs = SOURCES["email_alerts"].search(F(["Embedded"]), 20)
     assert [j.title for j in jobs] == ["Embedded Software Engineer (w/m/d) C"]
+
+
+def test_no_cap_and_unmatched_jobs_kept_for_review(conn, imap):
+    """2026-10-18: the per-source limit lost alert jobs (a processed mail is never read again), and
+    jobs matching no active filter are now kept as needs_attention / alert_review."""
+    conn.execute("""INSERT INTO search_filters (name, keywords) VALUES ('Dev', '["Developer"]')""")
+    conn.commit()
+    jobs = SOURCES["email_alerts"].search(F(["Developer"]), 1)
+    assert len(jobs) == 2                                     # limit 1 is ignored for the user's own mails
+    review = conn.execute("SELECT title, status, attention_reason FROM jobs").fetchall()
+    assert {tuple(r) for r in review} == {("Embedded Software Engineer (w/m/d) C", "needs_attention", "alert_review"),
+                                          ("Senior Principal Architect", "needs_attention", "alert_review")}
 
 
 def test_second_read_skips_processed_messages(conn, imap):

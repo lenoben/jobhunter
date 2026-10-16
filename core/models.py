@@ -19,7 +19,7 @@ USER_ONLY_STATUSES = ("applied", "interview", "offer", "rejected", "withdrawn")
 ATTENTION_REASONS = (
     "needs_login", "captcha", "form_unclear", "missing_profile_info",
     "german_only_form", "source_error", "work_authorization", "below_blue_card_threshold",
-    "inferred_facts",
+    "inferred_facts", "alert_review",
 )
 SALARY_FLAGS = ("ok", "below_blue_card_threshold", "salary_unknown")
 

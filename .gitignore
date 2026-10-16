@@ -4,10 +4,10 @@
 !.env.example
 
 # Personal data (R4)
-data/
-profile/
-output/
-logs/
+/data/
+/profile/
+/output/
+/logs/
 
 # Python
 .venv/

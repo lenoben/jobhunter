@@ -40,8 +40,8 @@ MAX_RESOLVES_PER_RUN = 40
 MAX_ATTEMPTS = 3
 _LINKEDIN_JOB = re.compile(r"https?://[\w.-]*linkedin\.com/(?:comm/)?jobs/view/(?:[^/?\s]*?-)?(\d{6,})[^\s\"'<>]*")
 _NOISE = re.compile(
-    r"^(?:\d+\s+school\s+alum(?:ni|nus)?|\d+\s+connections?|this company is actively hiring|be an early applicant|"
-    r"promoted|easy apply|actively recruiting|view job:?|view|apply|new|\d+\s+applicants?|"
+    r"^(?:\d+\s+(?:school|company)\s+alum(?:ni|nus)?|\d+\s+connections?|this company is actively hiring|be an early applicant|"
+    r"promoted|easy apply|actively recruiting|view job:?|view|apply|apply now|apply with .{0,40}|new|\d+\s+applicants?|"
     r"[€$£]\s?\d.*|\d.*[€$£].*|-{3,}|={3,})$", re.IGNORECASE)
 _WORK_MODE = re.compile(r"\((remote|hybrid|on-site|onsite)\)", re.IGNORECASE)
 
@@ -371,6 +371,9 @@ class EmailAlerts:
         self.dry_run = False  # set by run_search: read and parse, but record nothing
 
     def search(self, f: SearchFilter, limit: int) -> list[JobPosting]:
+        """Every alert job whose title matches the filter. `limit` is ignored: it protects scraped
+        websites (R6), but these are the user's own mails, already read — capping them lost jobs,
+        because a processed mail is never read again (fixed 2026-10-18)."""
         self.last_errors = []
         jobs = self._all_jobs()
         cutoff = (date.today() - timedelta(days=f.max_age_days)).isoformat()
@@ -380,14 +383,30 @@ class EmailAlerts:
                 continue  # matches no keyword of this filter (other filters may still take it)
             if j.received and j.received < cutoff:
                 continue
-            out.append(JobPosting(
-                source=self.key, source_job_id=f"{j.board}:{canonical_url(j.url)}", url=j.url, title=j.title,
-                company=j.company, location=j.location, work_mode=j.work_mode, description=j.description,
-                posted_at=j.received, salary_text=j.salary_text,
-            ))
-            if len(out) >= limit:
-                break
+            out.append(self._posting(j))
         return out
+
+    def _posting(self, j: AlertJob) -> JobPosting:
+        return JobPosting(
+            source=self.key, source_job_id=f"{j.board}:{canonical_url(j.url)}", url=j.url, title=j.title,
+            company=j.company, location=j.location, work_mode=j.work_mode, description=j.description,
+            posted_at=j.received, salary_text=j.salary_text,
+        )
+
+    def _store_unmatched(self, conn, jobs: list[AlertJob]) -> None:
+        """Jobs no active filter's keywords match are kept for the user to review (needs_attention /
+        alert_review) instead of being dropped (user request 2026-10-18)."""
+        from core.filters import load_filters
+        from core.search import store_for_review
+
+        filters = load_filters(conn, active_only=True)
+        if not filters:
+            return
+        cutoff = (date.today() - timedelta(days=max(f.max_age_days for f in filters))).isoformat()
+        unmatched = [j for j in jobs if j.title and not (j.received and j.received < cutoff)
+                     and not any(keyword_match(j.title, f.keywords) for f in filters)]
+        if unmatched:
+            store_for_review(conn, [self._posting(j) for j in unmatched])
 
     def fetch_details(self, job: JobPosting) -> JobPosting:
         return job  # no extra request (LinkedIn: never; StepStone/XING: described while resolving)
@@ -424,15 +443,16 @@ class EmailAlerts:
             if not had_error:
                 conn.execute("INSERT INTO settings (key, value) VALUES ('email_alerts_last_success', ?) "
                              "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (date.today().isoformat(),))
+            # the same job can arrive in several mails
+            unique = {canonical_url(j.url): j for j in jobs}
+            jobs_list = list(unique.values())
             if self.dry_run:
                 conn.rollback()  # a dry run records nothing: the mails stay "new" for the real run
             else:
+                self._store_unmatched(conn, jobs_list)  # commits, together with the processed mails
                 conn.commit()
         finally:
             conn.close()
-        # the same job can arrive in several mails
-        unique = {canonical_url(j.url): j for j in jobs}
-        jobs_list = list(unique.values())
         if not self.dry_run:
             self._cache = (time.monotonic(), jobs_list)
         return jobs_list
