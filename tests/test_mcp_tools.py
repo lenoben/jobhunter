@@ -96,7 +96,7 @@ def test_evaluate_and_flag(fake):
     with pytest.raises(ToolError, match="work_mode must be one of"):
         s.evaluate_job(job_id, 80, decision="shortlist", **(kwargs | {"work_mode": "office"}))
     assert s.evaluate_job(job_id, 80, decision="shortlist", **kwargs)["status"] == "shortlisted"
-    with pytest.raises(ToolError, match="only 'new' jobs"):
+    with pytest.raises(ToolError, match="already scored"):
         s.evaluate_job(job_id, 80, decision="shortlist", **kwargs)
 
     s.flag_attention(job_id, "needs_login", "Portal requires an account.")

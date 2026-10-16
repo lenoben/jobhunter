@@ -14,6 +14,7 @@ the **Stage**. Do only that stage's steps.
 | `filter` | cheap model | A1–A4: start the run, search, evaluate. Do **not** write documents and do **not** call `finish_run`. |
 | `write` | writer model | B1–B3: write documents for the open run, then `finish_run`. |
 | `docs` | writer model | C1: "Generate now" from the UI, for the jobs the user requested documents for. |
+| `evaluate` | cheap model | E1: "Score waiting jobs" from the UI: evaluate the backlog of `new` jobs, no search. Do **not** call `finish_run`; the write stage follows. |
 | `single` | cheap model | D1: "Evaluate now" for **one** job (`Job: N` in the prompt). Do **not** call `finish_run` unless you stop early. |
 | `single-write` | writer model | D2: documents for that one job, if it qualifies, then `finish_run`. |
 
@@ -50,7 +51,9 @@ Source errors are recorded automatically; carry on.
 **A4. Evaluate:** call `list_jobs("new", limit = max_evaluated_per_run)`. For each job: `get_job`,
 then `evaluate_job`:
 - Classify `work_mode`, `employment_type`, `language` (the posting's), and `apply_method`, with
-  `apply_email` when the posting names an application address.
+  `apply_email` when the posting names an application address. If the job already has an
+  `apply_email` (set by the user or taken from the posting), it is kept, so use `email`. If it has
+  an `apply_url` (where to apply), use `external_ats` or `portal` for that link.
 - Use **skip** for freelance/self-employed (if `exclude_freelance`), an excluded keyword, an
   unwanted employment type or work mode, or a poor fit.
 - `fit_score` (0–100) against the profile: skills, experience level, language, location. Take the
@@ -82,13 +85,23 @@ requested ones first. For each job, run **Tailor one job** (below).
 `list_jobs("shortlisted", for_documents = true, requested_only = true, limit = 10)`. For each job,
 run **Tailor one job**. Then call `finish_run(run_id)` and reply with the summary line.
 
+## Stage `evaluate` (backlog, no search)
+**E1.** Call `start_run("evaluate")`. If it is refused, reply with the reason and stop. Call
+`get_settings`, `get_profile` and `get_active_filters`, then `list_jobs("new", limit = 60)` and
+evaluate every job exactly as in A4. Reply with one line ("evaluated N, shortlisted M") and **stop**.
+Do not call `finish_run`; the write stage does that.
+
 ## Stage `single` (one job the user added, or whose full posting they added)
 **D1.** Call `start_run("single")`. If it is refused, reply with the reason and stop. Call
 `get_settings`, `get_profile` and `get_job(N)`.
 - If the job's status is `new`, evaluate it exactly as in A4, including `project_suggestions`.
   Jobs added by hand may have no filter. Then use the default `min_fit_score` of 60.
-- If its status is `needs_attention` (the §5a screening hit), or not `new` for another reason,
-  don't evaluate it. Call `finish_run(run_id)`, reply with one line explaining why, and stop.
+- If it has **no `fit_score`** but another status (documents were requested before it was
+  evaluated, or the user asked to re-evaluate it), call `evaluate_job` the same way. It stores the
+  score, notes and project ideas and keeps the status (pass the decision you would make anyway).
+- If its status is `new` but `needs_attention`-flagged by the §5a screening, or it is already
+  scored and not `new`, don't evaluate it. Call `finish_run(run_id)`, reply with one line
+  explaining why, and stop.
 - Otherwise reply with "evaluated job N: <decision>, fit <score>" and **stop**, leaving the run open.
 
 ## Stage `single-write`
@@ -101,7 +114,9 @@ Then call `finish_run(run_id)` and reply with one line: documents written, or wh
 54 < 60").
 
 ## Tailor one job
-1. Call `get_job`. Note `filter_name`, `language` and `docs_requested`. `Read`
+1. Call `get_job`. Note `filter_name`, `language` and `docs_requested`. If `fit_score` is null
+   (the user requested documents before the job was evaluated), first call `evaluate_job` as in A4
+   (with `project_suggestions`): it only stores the score and notes, the status stays. `Read`
    `templates/examples/cv_<lang>.json` and `letter_<lang>.json` once for the exact format.
 2. **Which documents:** `docs_requested` = `cv` → CV only, `letter` → cover letter only,
    `both` or empty → both.
@@ -130,6 +145,13 @@ Then call `finish_run(run_id)` and reply with one line: documents written, or wh
 
 **CV**
 - At most 2 pages, dates as `MM/YYYY` with `present` for ongoing.
+- **Headline** (user request 2026-10-18): `<role> | B.Sc. Computer Engineering`. `<role>` follows
+  the posting's role family, so not "Full-Stack-Entwickler" by default. Use the posting's role
+  (e.g. "Backend-Entwickler", "Embedded-Softwareentwickler", "Softwareentwickler mit Schwerpunkt
+  DevOps", "Frontend-Entwickler", "Python-Entwickler") when the profile backs it with experience,
+  projects or skills. Otherwise use the closest truthful role, usually "Softwareentwickler" (R5).
+  Never put a seniority, an employer's job title the user didn't hold, or "Ingenieur" in it. English
+  CVs follow the same rule ("Backend Developer | B.Sc. Computer Engineering").
 - The German CV includes every experience entry with `include_in_cv.de: true`.
 - Experience and education are sorted newest-first by the tool. Order `projects` and `skills` by
   relevance to the posting.

@@ -50,6 +50,12 @@ def fetch_posting(url: str) -> dict:
     if r.status_code >= 400:
         raise ManualJobError(f"the page answered HTTP {r.status_code} — paste the posting text instead")
     page = r.text
+    found = _parse_posting_page(page, str(r.url))
+    found["apply_url"] = _apply_link_from_html(page, str(r.url))
+    return found
+
+
+def _parse_posting_page(page: str, url: str) -> dict:
     for m in re.finditer(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', page, re.DOTALL | re.IGNORECASE):
         try:
             data = json.loads(m.group(1))
@@ -64,16 +70,16 @@ def fetch_posting(url: str) -> dict:
                 return {"title": item.get("title"), "company": org.get("name") if isinstance(org, dict) else org,
                         "location": addr.get("addressLocality") if isinstance(addr, dict) else None,
                         "description": html_to_text(item.get("description")), "posted_at": item.get("datePosted"),
-                        "url": str(r.url)}
+                        "url": url}
     micro = _microdata(page)  # schema.org microdata (e.g. SAP SuccessFactors career sites like adesso)
     if micro.get("description"):
         return {"title": micro.get("title") or _page_title(page), "company": micro.get("name") or _site_name(page),
                 "location": micro.get("addressLocality"), "description": micro["description"],
-                "posted_at": micro.get("datePosted"), "url": str(r.url)}
+                "posted_at": micro.get("datePosted"), "url": url}
     body = re.sub(r"(?is)<(script|style|nav|footer|header|noscript)[^>]*>.*?</\1>", " ", page)
     body = re.sub(r"(?is)<div[^>]+(?:cookie|consent|banner)[^>]*>.*?</div>", " ", body)
     return {"title": _page_title(page), "company": _site_name(page), "location": None,
-            "description": html_to_text(body), "posted_at": None, "url": str(r.url)}
+            "description": html_to_text(body), "posted_at": None, "url": url}
 
 
 def _page_title(page: str) -> str | None:
@@ -174,7 +180,87 @@ def _smartrecruiters(url: str) -> dict | None:
     return {"title": d.get("name"), "company": (d.get("company") or {}).get("name"),
             "location": (loc.get("city") or "") + remote or None, "description": "\n\n".join(parts) or None,
             "posted_at": (d.get("releasedDate") or "")[:10] or None,
-            "url": d.get("postingUrl") or url}
+            "url": d.get("postingUrl") or url, "apply_url": d.get("applyUrl")}
+
+
+_APPLY_WORDS = re.compile(r"bewerb|apply|application|candidat|karriere|career", re.IGNORECASE)
+_APPLY_STRONG = re.compile(r"bewerb|apply|application", re.IGNORECASE)
+_URL_IN_TEXT = re.compile(r"https?://[^\s<>\"')\]]+")
+_EMAIL_IN_TEXT = re.compile(r"(?<![\w.+-])([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})")
+_EMAIL_CONTEXT = re.compile(r"bewerb|unterlagen|lebenslauf|application|apply|cv\b|résumé|resume|send|senden|schick|richten",
+                            re.IGNORECASE)
+_NOT_APPLY_EMAIL = re.compile(r"^(no-?reply|noreply|datenschutz|privacy|dsb|webmaster|info@.*\.(?:png|jpg))", re.IGNORECASE)
+
+
+def apply_target_from_text(text: str | None, posting_url: str | None = None) -> dict:
+    """Where to apply, as stated in the posting text (user request 2026-10-18): a link next to
+    "bewerben / apply / application", or an email address next to "Bewerbung / Unterlagen / send …".
+    Returns {apply_url?} or {apply_email?} (a link wins), or {} if the text names neither."""
+    if not text:
+        return {}
+    posting = canonical_url(posting_url) if posting_url else None
+    best = None
+    for m in _URL_IN_TEXT.finditer(text):
+        url = m.group(0).rstrip(".,;:")
+        if posting and canonical_url(url) == posting:
+            continue
+        before = text[max(0, m.start() - 120):m.start()]
+        score = 2 if _APPLY_STRONG.search(url) else 0
+        score += 2 if _APPLY_STRONG.search(before) else (1 if _APPLY_WORDS.search(before + url) else 0)
+        if score >= 2 and (best is None or score > best[0]):
+            best = (score, url)
+    if best:
+        return {"apply_url": best[1]}
+    for m in _EMAIL_IN_TEXT.finditer(text):
+        email = m.group(1).rstrip(".")
+        around = text[max(0, m.start() - 160):m.end() + 40]
+        if not _NOT_APPLY_EMAIL.match(email) and _EMAIL_CONTEXT.search(around):
+            return {"apply_email": email}
+    return {}
+
+
+class _Links(HTMLParser):
+    """<a href> targets with their link text."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links: list[list[str]] = []
+        self._in: list[str] | None = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self._in = [dict(attrs).get("href") or "", ""]
+            self.links.append(self._in)
+
+    def handle_endtag(self, tag):
+        if tag == "a":
+            self._in = None
+
+    def handle_data(self, data):
+        if self._in is not None:
+            self._in[1] += data
+
+
+def _apply_link_from_html(page: str, base_url: str) -> str | None:
+    """The page's "Jetzt bewerben" / "Apply now" link (absolute), if it has one."""
+    from urllib.parse import urljoin
+
+    p = _Links()
+    try:
+        p.feed(page)
+    except Exception:
+        pass
+    for href, label in p.links:
+        href = href.strip()
+        if not href or href.startswith(("#", "javascript:")):
+            continue
+        if href.startswith("mailto:"):
+            continue
+        if _APPLY_STRONG.search(label) and len(label.strip()) <= 60:
+            url = urljoin(base_url, href)
+            if re.match(r"https?://", url) and canonical_url(url) != canonical_url(base_url):
+                return url
+    return None
 
 
 def _walk_ld(data):
@@ -211,15 +297,87 @@ def _filter_for(conn: sqlite3.Connection, title: str) -> int | None:
     return None
 
 
+_EMAIL = re.compile(r"^(?:mailto:)?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})$")
+
+
+def set_apply_target(conn: sqlite3.Connection, job_id: int, target: str | None) -> dict:
+    """Where to apply (user request 2026-10-18): a link (an ATS form, the company's career page)
+    or an email address. A link goes to jobs.apply_url; an email address to apply_email with
+    apply_method 'email', so the writer stage saves an email draft. Empty clears the link."""
+    jobs.get_job(conn, job_id)  # raises if unknown
+    target = (target or "").strip()
+    if not target:
+        conn.execute("UPDATE jobs SET apply_url = NULL, updated_at = datetime('now') WHERE id = ?", (job_id,))
+        conn.commit()
+        return {"job_id": job_id, "apply_url": None}
+    if m := _EMAIL.match(target):
+        conn.execute("UPDATE jobs SET apply_email = ?, apply_method = 'email', updated_at = datetime('now') "
+                     "WHERE id = ?", (m.group(1), job_id))
+        conn.commit()
+        return {"job_id": job_id, "apply_email": m.group(1)}
+    if not re.match(r"https?://\S+$", target) or len(target) > 2000:
+        raise ManualJobError("where to apply: give a link (http:// or https://) or an email address")
+    conn.execute("UPDATE jobs SET apply_url = ?, updated_at = datetime('now') WHERE id = ?", (target, job_id))
+    conn.commit()
+    return {"job_id": job_id, "apply_url": target}
+
+
+def reevaluate(conn: sqlite3.Connection, job_id: int, changed_by: str = "user") -> dict:
+    """Evaluate a job again with the posting text it already has (user request 2026-10-18): clears
+    the fit score, notes and project ideas, then the single-job run scores it again.
+    - skipped → 'new' (screened again), so the new evaluation can shortlist it;
+    - any other status stays: the job is only re-scored (evaluate_job score-only), its documents
+      and pipeline status are untouched. A documents request is kept."""
+    job = jobs.get_job(conn, job_id)
+    if job["status"] == "new" and job["fit_score"] is None:
+        return {"job_id": job_id, "status": "new", "note": "not evaluated yet"}
+    if job["status"] != "skipped":
+        conn.execute("UPDATE jobs SET fit_score = NULL, fit_notes = NULL, project_suggestions = NULL, "
+                     "updated_at = datetime('now') WHERE id = ?", (job_id,))
+        conn.commit()
+        return {"job_id": job_id, "status": job["status"], "note": "to be scored again (status stays)"}
+    # The §5a checks run again, so a salary/work-authorization flag isn't lost by re-evaluating.
+    p = JobPosting(source=job["source"], url=job["url"], title=job["title"], company=job["company"],
+                   location=job["location"], description=job["description"], salary_text=job["salary_text"])
+    note = _screen(p, float(get_settings(conn).get("blue_card_salary_min", "45934.20")))
+    resolved = conn.execute("SELECT 1 FROM status_history WHERE job_id = ? AND from_status = 'needs_attention' "
+                            "AND changed_by = 'user'", (job_id,)).fetchone()
+    if resolved and p.status == "needs_attention":  # the user already dealt with that flag
+        p.status, p.attention_reason, note = "new", None, None
+    conn.execute("UPDATE jobs SET fit_score = NULL, fit_notes = NULL, project_suggestions = NULL, "
+                 "salary_annual_eur = ?, salary_flag = ?, updated_at = datetime('now') WHERE id = ?",
+                 (p.salary_annual_eur, p.salary_flag, job_id))
+    jobs.set_status(conn, job_id, p.status, changed_by, attention_reason=p.attention_reason,
+                    note="re-evaluation requested" + (f"; {note}" if note else ""))
+    conn.commit()
+    return {"job_id": job_id, "status": p.status, "note": note or "to be evaluated again"}
+
+
+CLOSED = ("applied", "interview", "offer", "rejected", "withdrawn")
+
+
 def add_manual_job(conn: sqlite3.Connection, url: str, text: str | None = None, title: str | None = None,
-                   company: str | None = None, location: str | None = None) -> dict:
-    """Add a job from a link (fetched if public) and/or pasted text. If the job is already known
-    (R8), the pasted text is added to it instead. Returns {job_id, created, status, note}."""
+                   company: str | None = None, location: str | None = None, apply_to: str | None = None) -> dict:
+    """Add a job from a link (fetched if public) and/or pasted text, and optionally where to apply
+    (a link or email address, see set_apply_target). If the job is already known (R8), the pasted
+    text and apply target are added to it instead. Returns {job_id, created, status, note}."""
     url = (url or "").strip()
     if not re.match(r"https?://", url):
         raise ManualJobError("give the job's link (http:// or https://)")
+    if apply_to and apply_to.strip() and not (_EMAIL.match(apply_to.strip()) or re.match(r"https?://\S+$", apply_to.strip())):
+        raise ManualJobError("where to apply: give a link (http:// or https://) or an email address")
+    result = _add_manual_job(conn, url, text, title, company, location)
+    if apply_to and apply_to.strip():
+        set_apply_target(conn, result["job_id"], apply_to)
+    return result
+
+
+def _add_manual_job(conn: sqlite3.Connection, url: str, text: str | None, title: str | None,
+                    company: str | None, location: str | None) -> dict:
     text = (text or "").strip()[:MAX_TEXT] or None
-    seen = jobs.is_seen(conn, url)
+    # a job removed by the automatic clean-up may be added again by hand (its tombstone goes below)
+    row = jobs.find_seen(conn, canonical_url(url), include_deleted=False)
+    seen = {"seen": True, "job_id": row["id"], "status": row["status"]} if row else {"seen": False}
     if seen["seen"]:
         if text:
             update_posting(conn, seen["job_id"], text)
@@ -241,7 +399,9 @@ def add_manual_job(conn: sqlite3.Connection, url: str, text: str | None = None, 
     p.source_job_id = canonical_url(url)
     p.canonical_url = canonical_url(p.url)
     p.fingerprint = fingerprint(p.company, p.title, p.location, p.canonical_url)
-    dup = jobs.find_seen(conn, p.canonical_url, p.fingerprint)
+    dup = jobs.find_seen(conn, p.canonical_url, p.fingerprint, include_deleted=False)
+    conn.execute("DELETE FROM deleted_jobs WHERE canonical_url IN (?, ?) OR fingerprint = ?",
+                 (p.canonical_url, p.source_job_id, p.fingerprint))
     if dup:
         return {"job_id": dup["id"], "created": False, "status": dup["status"], "note": "already known (same job)"}
     p.filter_id = _filter_for(conn, p.title)
@@ -249,7 +409,21 @@ def add_manual_job(conn: sqlite3.Connection, url: str, text: str | None = None, 
     note = _screen(p, threshold)
     p.id = jobs.insert_job(conn, p, note=("added manually" + (f"; {note}" if note else "")))
     conn.commit()
+    _auto_apply_target(conn, p.id, text, p.url, fetched.get("apply_url"))
     return {"job_id": p.id, "created": True, "status": p.status, "note": note or "added"}
+
+
+def _auto_apply_target(conn: sqlite3.Connection, job_id: int, text: str | None, posting_url: str,
+                       page_link: str | None = None) -> dict:
+    """If the job has no apply link/email yet, take the page's "Apply" link or the one the posting
+    text names. Never overwrites what the user (or the evaluation) already set."""
+    job = jobs.get_job(conn, job_id)
+    if job.get("apply_url") or job.get("apply_email"):
+        return {}
+    found = {"apply_url": page_link} if page_link else apply_target_from_text(text, posting_url)
+    if found:
+        set_apply_target(conn, job_id, found.get("apply_url") or found.get("apply_email"))
+    return found
 
 
 def update_posting(conn: sqlite3.Connection, job_id: int, text: str, changed_by: str = "user") -> dict:
@@ -259,7 +433,7 @@ def update_posting(conn: sqlite3.Connection, job_id: int, text: str, changed_by:
     if len(text) < 80:
         raise ManualJobError("paste the full posting (at least a few sentences)")
     job = jobs.get_job(conn, job_id)
-    if job["status"] in ("applied", "interview", "offer", "rejected", "withdrawn"):
+    if job["status"] in CLOSED:
         raise ManualJobError(f"job {job_id} is already {job['status']}; its evaluation isn't redone")
     p = JobPosting(source=job["source"], url=job["url"], title=job["title"], company=job["company"],
                    location=job["location"], description=text,
@@ -274,4 +448,5 @@ def update_posting(conn: sqlite3.Connection, job_id: int, text: str, changed_by:
     jobs.set_status(conn, job_id, to, changed_by, attention_reason=p.attention_reason,
                     note="full posting added" + (f"; {note}" if note else "") + " — to be evaluated again")
     conn.commit()
-    return {"job_id": job_id, "status": to, "note": note}
+    found = _auto_apply_target(conn, job_id, text, job["url"])
+    return {"job_id": job_id, "status": to, "note": note} | found

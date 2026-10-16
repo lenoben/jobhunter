@@ -48,14 +48,18 @@ def _log(msg: str) -> None:
 
 @server.tool()
 def start_run(trigger: str = "scheduled") -> dict[str, Any]:
-    """Start a job-hunt run. trigger: 'scheduled', 'manual', or 'docs' (writer only, for jobs the user
-    requested documents for; not subject to min_hours_between_runs). Returns {started: true, run_id}, or
+    """Start a job-hunt run. trigger: 'scheduled', 'manual', 'docs' (writer only, for jobs the user
+    requested documents for), 'single' (one job) or 'evaluate' (backlog of new jobs, no search); the
+    last three are not subject to min_hours_between_runs. Returns {started: true, run_id}, or
     {started: false, reason} if a run is still running or the last one finished less than
     min_hours_between_runs ago — then stop quietly."""
     with _db() as conn:
         try:
             return {"started": True, "run_id": runs.start_run(conn, trigger)}
         except runs.RunRefused as e:
+            if trigger in ("docs", "single", "manual", "evaluate"):  # started by the user: tell them on Telegram
+                from core import notify
+                notify.notify_run_refused(conn, trigger, str(e))
             return {"started": False, "reason": str(e)}
 
 
@@ -190,7 +194,8 @@ def evaluate_job(job_id: int, fit_score: int, fit_notes: str, work_mode: str, em
                  language: str, apply_method: str, decision: str,
                  apply_email: str | None = None,
                  project_suggestions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Store your evaluation of a job with status 'new'.
+    """Store your evaluation of a job with status 'new' (→ shortlisted/skipped), or of a job in another
+    status that has no fit_score yet (score, notes and project ideas are stored; the status stays).
     work_mode: remote|hybrid|onsite|unknown. employment_type: full_time|part_time|minijob|
     working_student|internship|contract|freelance|unknown. language (of the posting): de|en.
     apply_method: portal|email|external_ats|unknown (apply_email required for 'email').

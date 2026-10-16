@@ -25,17 +25,47 @@ _INSERT_COLS = (
 )
 
 
-def find_seen(conn: sqlite3.Connection, canonical: str, fp: str | None = None) -> sqlite3.Row | None:
-    """R8: a job is seen if its canonical URL or its fingerprint already exists."""
+def find_seen(conn: sqlite3.Connection, canonical: str, fp: str | None = None,
+              include_deleted: bool = True) -> sqlite3.Row | dict | None:
+    """R8: a job is seen if its canonical URL or its fingerprint already exists — also when the job
+    was removed by the automatic clean-up ({id: None, status: 'deleted'})."""
     row = conn.execute("SELECT id, status FROM jobs WHERE canonical_url = ?", (canonical,)).fetchone()
     if row is None and fp:
         row = conn.execute("SELECT id, status FROM jobs WHERE fingerprint = ? LIMIT 1", (fp,)).fetchone()
+    if row is None and include_deleted and conn.execute(
+            "SELECT 1 FROM deleted_jobs WHERE canonical_url = ? OR (? IS NOT NULL AND fingerprint = ?)",
+            (canonical, fp, fp)).fetchone():
+        return {"id": None, "status": "deleted"}
     return row
 
 
 def is_seen(conn: sqlite3.Connection, url: str) -> dict:
     row = find_seen(conn, canonical_url(url))
     return {"seen": True, "job_id": row["id"], "status": row["status"]} if row else {"seen": False}
+
+
+# Jobs the user never acted on: no documents/application, not a favourite, no documents requested.
+_PURGEABLE = """status IN ('new', 'skipped', 'shortlisted', 'needs_attention') AND favorite = 0
+                AND docs_requested IS NULL AND id NOT IN (SELECT job_id FROM applications)
+                AND updated_at < datetime('now', ?)"""
+
+
+def purge_old_jobs(conn: sqlite3.Connection, dry_run: bool = False) -> int:
+    """Automatic clean-up (setting job_retention_days, 0 = off, user request 2026-10-18): delete
+    jobs untouched for that many days that the user never acted on. Applied/interview/offer/
+    rejected/withdrawn, documents, favourites and requested documents are always kept. The dedup
+    keys stay in deleted_jobs, so a deleted job is never processed again (R8)."""
+    days = int(float(get_settings(conn).get("job_retention_days", "0") or 0))
+    if days <= 0:
+        return 0
+    age = f"-{days} days"
+    if dry_run:
+        return conn.execute(f"SELECT COUNT(*) FROM jobs WHERE {_PURGEABLE}", (age,)).fetchone()[0]
+    conn.execute(f"""INSERT OR IGNORE INTO deleted_jobs (canonical_url, fingerprint)
+                     SELECT canonical_url, fingerprint FROM jobs WHERE {_PURGEABLE}""", (age,))
+    n = conn.execute(f"DELETE FROM jobs WHERE {_PURGEABLE}", (age,)).rowcount
+    conn.commit()
+    return n
 
 
 def insert_job(conn: sqlite3.Connection, p: JobPosting, note: str | None = None) -> int:
@@ -130,10 +160,14 @@ def history(conn: sqlite3.Connection, job_id: int) -> list[dict]:
 def evaluate_job(conn: sqlite3.Connection, job_id: int, fit_score: int, fit_notes: str, work_mode: str,
                  employment_type: str, language: str, apply_method: str, decision: str,
                  apply_email: str | None = None, project_suggestions: list | None = None) -> str:
-    """Store Claude's evaluation of a `new` job and move it to shortlisted/skipped. Returns the new status."""
+    """Store Claude's evaluation of a `new` job and move it to shortlisted/skipped. Returns the new status.
+    A job that has no fit score yet in another status (documents requested before it was evaluated,
+    or a re-evaluation, user request 2026-10-18) gets its score and notes stored; its status stays."""
     job = get_job(conn, job_id)
-    if job["status"] != "new":
-        raise ValueError(f"job {job_id} has status {job['status']}; only 'new' jobs are evaluated (R8)")
+    score_only = job["status"] != "new"
+    if score_only and job["fit_score"] is not None:
+        raise ValueError(f"job {job_id} has status {job['status']} and is already scored; only 'new' or "
+                         "unscored jobs are evaluated (R8)")
     _check_choice("work_mode", work_mode, WORK_MODES)
     _check_choice("employment_type", employment_type, EMPLOYMENT_TYPES)
     _check_choice("language", language, LANGUAGES)
@@ -145,9 +179,12 @@ def evaluate_job(conn: sqlite3.Connection, job_id: int, fit_score: int, fit_note
         raise ValueError("fit_notes must not be empty")
     if apply_email and not _EMAIL_RE.fullmatch(apply_email.strip()):
         raise ValueError(f"apply_email is not an email address: {apply_email!r}")
+    if not apply_email and job["apply_email"]:
+        # set by the user or taken from the posting (core/manual.py): an evaluation doesn't drop it
+        apply_email, apply_method = job["apply_email"], "email"
     if apply_method == "email" and not apply_email and decision == "shortlist":
         raise ValueError("apply_method is 'email' but no apply_email was given")
-    if decision == "shortlist" and job["filter_id"] is not None:
+    if decision == "shortlist" and job["filter_id"] is not None and not score_only:
         row = conn.execute("SELECT min_fit_score FROM search_filters WHERE id = ?", (job["filter_id"],)).fetchone()
         if row and fit_score < row["min_fit_score"]:
             raise ValueError(f"fit_score {fit_score} is below the filter's min_fit_score "
@@ -159,6 +196,11 @@ def evaluate_job(conn: sqlite3.Connection, job_id: int, fit_score: int, fit_note
         "apply_method = ?, apply_email = ?, project_suggestions = ?, updated_at = datetime('now') WHERE id = ?",
         (fit_score, fit_notes, work_mode, employment_type, language, apply_method,
          apply_email.strip() if apply_email else None, suggestions, job_id))
+    if score_only:
+        conn.execute("INSERT INTO status_history (job_id, from_status, to_status, note, changed_by) "
+                     "VALUES (?, ?, ?, ?, 'claude')", (job_id, job["status"], job["status"], f"scored: fit {fit_score}"))
+        conn.commit()
+        return job["status"]
     to_status = "shortlisted" if decision == "shortlist" else "skipped"
     set_status(conn, job_id, to_status, "claude", note=f"fit score {fit_score}")
     conn.commit()

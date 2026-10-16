@@ -12,9 +12,11 @@ from core.db import get_settings
 # A run still "running" after this long died without finish_run (the scheduled task is killed
 # after 2 h, CLAUDE.md §9); it is closed as failed so it doesn't block every later run.
 STALE_AFTER = timedelta(hours=3)
-TRIGGERS = ("scheduled", "manual", "docs", "single")
+TRIGGERS = ("scheduled", "manual", "docs", "single", "evaluate")
 # "single": the user added a job / its full posting and pressed "evaluate now": one job only.
-QUICK_TRIGGERS = ("docs", "single")
+# "evaluate": "Score waiting jobs" — evaluates the backlog of new jobs (no search), then the writer
+# stage writes documents for the ones that qualify.
+QUICK_TRIGGERS = ("docs", "single", "evaluate")
 # "docs": user clicked "Generate now" — only the writer stage, only for jobs the user requested
 # documents for. Small, so it skips min_hours_between_runs and doesn't count for it either; it is
 # still never started while another run is running.
@@ -47,7 +49,7 @@ def start_run(conn: sqlite3.Connection, trigger: str) -> int:
 
     last = conn.execute(
         "SELECT id, finished_at FROM runs WHERE finished_at IS NOT NULL AND status != 'failed' "
-        "AND trigger NOT IN ('docs', 'single') ORDER BY finished_at DESC LIMIT 1").fetchone()
+        "AND trigger NOT IN ('docs', 'single', 'evaluate') ORDER BY finished_at DESC LIMIT 1").fetchone()
     if last and trigger not in QUICK_TRIGGERS:
         since = now - _parse(last["finished_at"])
         if since < timedelta(hours=min_hours):
@@ -58,6 +60,9 @@ def start_run(conn: sqlite3.Connection, trigger: str) -> int:
 
     cur = conn.execute("INSERT INTO runs (trigger) VALUES (?)", (trigger,))
     conn.commit()
+    if trigger in ("scheduled", "manual"):  # automatic clean-up of old jobs (job_retention_days)
+        from core.jobs import purge_old_jobs
+        purge_old_jobs(conn)
     return cur.lastrowid
 
 
@@ -131,13 +136,14 @@ def run_status(run: dict, failed_reason: str | None) -> str:
     return "partial" if any(not p["soft"] or p["failed"] >= p["of"] for p in problems) else "ok"
 
 
-def attention_jobs(conn: sqlite3.Connection, since: str) -> list[dict]:
+def attention_jobs(conn: sqlite3.Connection, since: str, until: str | None = None) -> list[dict]:
     """Jobs moved to needs_attention since `since` (UTC) that are still waiting for the user."""
     return [dict(r) for r in conn.execute(
         """SELECT DISTINCT j.id, j.title, j.company, j.location, j.attention_reason
            FROM status_history h JOIN jobs j ON j.id = h.job_id
-           WHERE h.to_status = 'needs_attention' AND h.changed_at >= ? AND j.status = 'needs_attention'
-           ORDER BY j.id""", (since,))]
+           WHERE h.to_status = 'needs_attention' AND h.from_status IS NOT h.to_status AND h.changed_at >= ? AND h.changed_at <= COALESCE(?, '9999')
+             AND j.status = 'needs_attention'
+           ORDER BY j.id""", (since, until))]
 
 
 def tailored_since(conn: sqlite3.Connection, since: str) -> int:
@@ -145,8 +151,41 @@ def tailored_since(conn: sqlite3.Connection, since: str) -> int:
     approve inferred facts are counted under needs_you instead."""
     return conn.execute(
         """SELECT COUNT(DISTINCT job_id) FROM status_history
-           WHERE changed_at >= ? AND changed_by = 'claude' AND to_status = 'docs_ready'""",
+           WHERE changed_at >= ? AND changed_by = 'claude' AND to_status = 'docs_ready'
+             AND from_status IS NOT to_status""",
         (since,)).fetchone()[0]
+
+
+def written_jobs(conn: sqlite3.Connection, since: str, until: str | None = None) -> list[dict]:
+    """Jobs whose documents were written since `since`: docs_ready, or waiting for the user to
+    approve inferred facts (needs_attention / inferred_facts)."""
+    return [dict(r) for r in conn.execute(
+        """SELECT DISTINCT j.id, j.title, j.company, j.location, j.fit_score, j.status, j.attention_reason,
+                  COALESCE(a.email_draft_saved, 0) AS email_draft_saved
+           FROM status_history h JOIN jobs j ON j.id = h.job_id LEFT JOIN applications a ON a.job_id = j.id
+           WHERE h.changed_at >= ? AND h.changed_at <= COALESCE(?, '9999') AND h.changed_by = 'claude'
+             AND h.from_status IS NOT h.to_status AND (h.to_status = 'docs_ready'
+                  OR (h.to_status = 'needs_attention' AND j.attention_reason = 'inferred_facts'))
+           ORDER BY j.id""", (since, until))]
+
+
+def evaluated_jobs(conn: sqlite3.Connection, since: str, until: str | None = None) -> list[dict]:
+    """Jobs Claude evaluated since `since` (new → shortlisted / skipped), best fit first."""
+    return [dict(r) for r in conn.execute(
+        """SELECT DISTINCT j.id, j.title, j.company, j.location, j.fit_score, h.to_status AS decision,
+                  j.docs_requested
+           FROM status_history h JOIN jobs j ON j.id = h.job_id
+           WHERE h.changed_at >= ? AND h.changed_at <= COALESCE(?, '9999') AND h.changed_by = 'claude'
+             AND ((h.from_status = 'new' AND h.to_status IN ('shortlisted', 'skipped'))
+                  OR h.note LIKE 'scored: fit %')
+           ORDER BY j.fit_score IS NULL, j.fit_score DESC, j.id""", (since, until))]
+
+
+def requested_waiting(conn: sqlite3.Connection) -> list[dict]:
+    """Jobs the user requested documents for that still have none (e.g. over the per-run cap)."""
+    return [dict(r) for r in conn.execute(
+        """SELECT id, title, company FROM jobs WHERE status = 'shortlisted' AND docs_requested IS NOT NULL
+           ORDER BY id""")]
 
 
 MOTIVATION_GAP_RE = re.compile(r'Motivation for "([^"]+)"')
@@ -187,8 +226,8 @@ def finish_run(conn: sqlite3.Connection, run_id: int, tailored: int | None = Non
         raise ValueError(f"run {run_id} is already closed (status {run['status']})")
     if tailored is None:
         tailored = tailored_since(conn, run["started_at"])
-    if needs_you is None:
-        needs_you = len(attention_jobs(conn, run["started_at"]))
+    if needs_you is None:  # alert jobs waiting for review are listed separately (one Telegram line)
+        needs_you = sum(j["attention_reason"] != "alert_review" for j in attention_jobs(conn, run["started_at"]))
     if failed_reason:
         add_errors(conn, run_id, [{"source": "run", "message": failed_reason}])
     current = dict(get_run(conn, run_id))

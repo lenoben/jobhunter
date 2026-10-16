@@ -61,10 +61,12 @@ def build_kit(conn: sqlite3.Connection, job_id: int, profile: dict) -> dict:
 
     data_block = "\n".join(f"- {f['label']}: {f['value']}" for f in kit_fields)
     docs_block = "\n".join(f"- {d['label']}: {d['path']}" for d in documents) or "- (no documents yet)"
-    prompt = (f"{PROMPT_INTRO}\n\nJob: {job['title']} — {job.get('company') or ''}\nApplication page: {job['url']}\n\n"
+    apply_url = job.get("apply_url") or job["url"]  # where to apply, if the user set one (migration 011)
+    prompt = (f"{PROMPT_INTRO}\n\nJob: {job['title']} — {job.get('company') or ''}\nApplication page: {apply_url}\n\n"
               f"Data:\n{data_block}\n\nFiles to upload:\n{docs_block}")
     return {
-        "job_id": job_id, "title": job["title"], "company": job.get("company"), "url": job["url"],
+        "job_id": job_id, "title": job["title"], "company": job.get("company"), "url": apply_url,
+        "posting_url": job["url"],
         "apply_method": job.get("apply_method"), "apply_email": job.get("apply_email"),
         "language": lang, "documents": documents, "fields": kit_fields, "prompt": prompt,
     }
