@@ -7,8 +7,12 @@
 	const links = [
 		{ href: '/', label: 'Jobs' },
 		{ href: '/attention', label: 'Needs you' },
+		{ href: '/applications', label: 'Applications' },
+		{ href: '/boards', label: 'Job boards' },
 		{ href: '/filters', label: 'Filters' },
 		{ href: '/runs', label: 'Runs' },
+		{ href: '/stats', label: 'Statistics' },
+		{ href: '/profile', label: 'Profile' },
 		{ href: '/settings', label: 'Settings' }
 	];
 
@@ -36,6 +40,7 @@
 			<a href={l.href} class:active={active(l.href)}>
 				{l.label}
 				{#if l.href === '/attention' && data.needsYou > 0}<span class="badge">{data.needsYou}</span>{/if}
+				{#if l.href === '/attention' && data.review > 0}<span class="badge review" title="Job-alert jobs to review">📥 {data.review}</span>{/if}
 			</a>
 		{/each}
 		<button class="ghost theme" onclick={toggleTheme} title="Toggle light/dark">◐</button>
