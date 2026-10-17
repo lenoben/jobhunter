@@ -57,22 +57,28 @@ export function notesHtml(jobId: number): string | null {
 	return existsSync(path) ? markdown(readFileSync(path, 'utf-8')) : null;
 }
 
-/** Spawn run.ps1 detached. 'manual' = full run (time guard applies); 'docs' = "Generate now":
- *  writer only, for the jobs the user requested documents for (no time guard). */
-export function runNow(trigger: 'manual' | 'docs' | 'single' = 'manual', jobId?: number): string {
+/** Start run.ps1 in the background. 'manual' = full run (time guard applies); 'docs' = "Generate now":
+ *  writer only, for the jobs the user requested documents for (no time guard); 'single' = one job.
+ *  Started through `cmd /c start`, so the run gets its own (hidden) console: it survives a restart of
+ *  the UI and Ctrl+C in the UI's terminal. (spawn with detached: true starts PowerShell without a
+ *  console, and it exits at once without running anything — that silently broke these buttons.) */
+export function runNow(trigger: 'manual' | 'docs' | 'single' | 'evaluate' = 'manual', jobId?: number): string {
 	const shell = spawnSync('where', ['pwsh'], { windowsHide: true }).status === 0 ? 'pwsh' : 'powershell.exe';
 	const extra = trigger === 'single' && jobId ? ['-JobId', String(Math.trunc(jobId))] : [];
-	const child = spawn(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(ROOT, 'run.ps1'), '-Trigger', trigger, ...extra], {
+	const child = spawn('cmd.exe', ['/d', '/c', 'start', '"JobHunter"', '/min', shell, '-NoProfile', '-WindowStyle', 'Hidden',
+		'-ExecutionPolicy', 'Bypass', '-File', join(ROOT, 'run.ps1'), '-Trigger', trigger, ...extra], {
 		cwd: ROOT,
-		detached: true,
 		stdio: 'ignore',
 		windowsHide: true
 	});
 	child.unref();
 	if (trigger === 'single') {
-		return `Evaluating this job now (pid ${child.pid}). In 1–3 minutes it shows its fit score, and if it meets your criteria the documents too. Reload the page to see it.`;
+		return `Evaluating this job now. In 1–3 minutes it shows its fit score, and if it meets your criteria the documents too. Reload the page to see it; Telegram tells you when it's done.`;
+	}
+	if (trigger === 'evaluate') {
+		return `Scoring up to 60 waiting jobs now (no new search), then writing documents for those that qualify. This takes 5–15 minutes; Telegram tells you when it's done.`;
 	}
 	return trigger === 'docs'
-		? `Writing the requested documents now (pid ${child.pid}). This takes a few minutes; the job then shows "docs ready" (or "needs you").`
-		: `Run started (pid ${child.pid}). It appears under Runs within a minute — unless the time guard refuses it.`;
+		? `Writing the requested documents now. This takes a few minutes per job; the job then shows "docs ready" (or "needs you"), and Telegram tells you when it's done.`
+		: `Run started. It appears under Runs within a minute — unless the time guard refuses it.`;
 }

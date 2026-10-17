@@ -11,7 +11,7 @@
 		const p = new URLSearchParams();
 		const cur: Record<string, string | number> = {
 			q: data.params.q, status: data.params.status, source: data.params.source,
-			work_mode: data.params.work_mode, sort: data.params.sort, dir: data.params.dir,
+			work_mode: data.params.work_mode, fav: data.params.fav, sort: data.params.sort, dir: data.params.dir,
 			size: data.pageSize, page: 1, ...changes
 		};
 		for (const [k, v] of Object.entries(cur)) {
@@ -56,9 +56,17 @@
 		<form method="POST" action="?/generate" use:enhance><button>✍️ Generate now</button></form>
 	</div>
 {/if}
+{#if (data.counts.new ?? 0) > 0}
+	<div class="card row">
+		<div class="grow"><strong>{data.counts.new}</strong> job{data.counts.new === 1 ? '' : 's'} not scored yet.
+			<span class="muted small">Each run scores {data.maxEvaluated}; score up to 60 more now (no new search):</span></div>
+		<form method="POST" action="?/score" use:enhance><button class="secondary">🧮 Score waiting jobs</button></form>
+	</div>
+{/if}
 
-<details class="card" open={!!form?.addError}>
-	<summary><strong>+ Add a job</strong> <span class="muted small">by link; paste the posting for LinkedIn/Instaffo or pages that don't load</span></summary>
+<details class="card" id="add-job" open={!!form?.addError || data.openAdd}>
+	<summary><strong>+ Add a job</strong> <span class="muted small">by link; paste the posting for LinkedIn/Instaffo or pages that don't load ·
+		<a href="/boards">your job boards</a></span></summary>
 	{#if form?.addError}<div class="flash" style="margin-top: 0.6rem">{form.addError}</div>{/if}
 	<form method="POST" action="?/add" style="display: grid; gap: 0.6rem; margin-top: 0.7rem">
 		<input type="url" name="url" required placeholder="https://… (the job posting's link)" value={form?.addValues?.url ?? ''} />
@@ -67,6 +75,7 @@
 			<input type="text" name="company" placeholder="Company (optional)" class="grow" />
 			<input type="text" name="location" placeholder="City (optional)" class="grow" />
 		</div>
+		<input type="text" name="apply-to" placeholder="Where to apply (optional): application form link or email address — found in the posting text automatically if left empty" value={form?.addValues?.applyTo ?? ''} />
 		<textarea name="text" rows="5" placeholder="Full posting text (optional — copy the whole ad here)">{form?.addValues?.text ?? ''}</textarea>
 		<div class="row">
 			<label class="checks" style="margin: 0"><input type="checkbox" name="now" checked /> Evaluate now (and write documents if it fits)</label>
@@ -95,6 +104,9 @@
 			<option value={m} selected={data.params.work_mode === m}>{m}</option>
 		{/each}
 	</select>
+	<label class="checks" style="margin: 0" title="Show only your favourites">
+		<input type="checkbox" name="fav" value="1" checked={data.params.fav === '1'} /> ★ Favourites ({data.favoriteCount})
+	</label>
 	<input type="hidden" name="sort" value={data.params.sort} />
 	<input type="hidden" name="dir" value={data.params.dir} />
 	<button>Filter</button>
@@ -105,6 +117,7 @@
 	<table>
 		<thead>
 			<tr>
+				<th aria-label="Favourite"></th>
 				{#each columns as c}
 					<th class={c.cls ?? ''} aria-sort={data.params.sort === c.key ? (data.params.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
 						<a class="sort" href={sortHref(c.key)} title="Sort by {c.label}">{c.label}{arrow(c.key)}</a>
@@ -116,6 +129,13 @@
 		<tbody>
 			{#each data.rows as j (j.id)}
 				<tr>
+					<td class="fav-cell">
+						<form method="POST" action="?/favorite" use:enhance>
+							<input type="hidden" name="id" value={j.id} />
+							<button class="star" class:on={j.favorite} title={j.favorite ? 'Remove from favourites' : 'Add to favourites'}
+								aria-pressed={!!j.favorite}>{j.favorite ? '★' : '☆'}</button>
+						</form>
+					</td>
 					<td><a href="/jobs/{j.id}">{j.title}</a></td>
 					<td>{j.company ?? '–'}</td>
 					<td class="hide-sm">{j.location ?? '–'}</td>
@@ -147,7 +167,7 @@
 					</td>
 				</tr>
 			{:else}
-				<tr><td colspan="8" class="muted">No jobs match.</td></tr>
+				<tr><td colspan="9" class="muted">No jobs match.</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -170,4 +190,5 @@
 	.sort:hover { color: var(--accent); text-decoration: none; }
 	.pager { margin-top: 0.8rem; }
 	.active-size { font-weight: 700; text-decoration: underline; }
+	.fav-cell { width: 1.8rem; padding-right: 0; }
 </style>

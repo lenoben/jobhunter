@@ -21,5 +21,6 @@ export const ATTENTION_HELP: Record<string, string> = {
 	source_error: 'The job board failed for this posting. Open the link and check it.',
 	work_authorization: 'The ad demands a specific work authorization. Read it and decide yourself.',
 	below_blue_card_threshold: 'The stated salary is below the EU Blue Card threshold. Decide whether it is worth it.',
+	alert_review: 'From a job-alert email, but its title matches none of your filters. Evaluate it if it looks worth it, otherwise dismiss it.',
 	inferred_facts: 'The documents contain statements implied by, but not written in, your profile. Approve or reject them.'
 };

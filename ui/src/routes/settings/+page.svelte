@@ -44,6 +44,13 @@
 			<p class="muted small" style="margin: 0">Valid for {form.pairing.expiresInMin} minutes, single use.</p>
 		{/if}
 	</div>
+{:else}
+	<p class="muted small">Pairing another phone or tablet: open Settings on the PC itself and press "Pair a device"
+		(codes can only be created there).</p>
+{/if}
+{#if data.purge.days > 0}
+	<p class="muted small">Automatic clean-up: jobs untouched for {data.purge.days} days are deleted at the start of each
+		scheduled run — {data.purge.count} would be deleted now. Applied jobs, jobs with documents and ★ favourites are never deleted.</p>
 {/if}
 
 <form method="POST" action="?/save" use:enhance={() => async ({ update }) => update({ reset: false })} class="card" style="display: grid; gap: 0.8rem; max-width: 640px">

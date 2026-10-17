@@ -2,9 +2,9 @@
 // so the UI doesn't need to start Python. For filling forms only — the user always submits (R1/R2).
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from 'yaml';
-import { getDb, ROOT } from './db';
+import { getDb } from './db';
 import { jobDir, listDocuments } from './files';
+import { loadProfile } from './profile';
 
 export const PROMPT_INTRO =
 	'Fill in this application form using the data below. Upload the CV and cover letter if the ' +
@@ -13,11 +13,6 @@ export const PROMPT_INTRO =
 	'Do not log in, create an account or solve a CAPTCHA — stop and tell me instead.\n' +
 	'If the page demands unrestricted work authorization, EU citizenship, or says no visa ' +
 	'sponsorship, stop and tell me the exact wording.';
-
-function loadProfile(): any {
-	const path = process.env.JOBHUNTER_PROFILE ?? join(ROOT, 'profile', 'profile.yaml');
-	return existsSync(path) ? parse(readFileSync(path, 'utf-8')) ?? {} : {};
-}
 
 const squash = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -60,10 +55,11 @@ export function buildKit(job: any) {
 
 	const dataBlock = kitFields.map((f) => `- ${f.label}: ${f.value}`).join('\n');
 	const docsBlock = documents.map((d) => `- ${d.label}: ${d.path}`).join('\n') || '- (no documents yet)';
+	const applyUrl = job.apply_url || job.url; // where to apply, if set (migration 011)
 	const prompt =
-		`${PROMPT_INTRO}\n\nJob: ${job.title} — ${job.company ?? ''}\nApplication page: ${job.url}\n\n` +
+		`${PROMPT_INTRO}\n\nJob: ${job.title} — ${job.company ?? ''}\nApplication page: ${applyUrl}\n\n` +
 		`Data:\n${dataBlock}\n\nFiles to upload:\n${docsBlock}`;
-	return { url: job.url, applyMethod: job.apply_method, applyEmail: job.apply_email, documents, fields: kitFields, prompt };
+	return { url: applyUrl, applyMethod: job.apply_method, applyEmail: job.apply_email, documents, fields: kitFields, prompt };
 }
 
 /** Opening of this job's letter, else the user's motivation for the category, else the summary. */

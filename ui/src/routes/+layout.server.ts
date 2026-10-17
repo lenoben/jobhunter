@@ -1,5 +1,5 @@
-import { needsYouCount } from '$lib/server/db';
+import { needsYouCount, reviewCount } from '$lib/server/db';
 
 export function load() {
-	return { needsYou: needsYouCount() };
+	return { needsYou: needsYouCount(), review: reviewCount() };
 }

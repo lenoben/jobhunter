@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { getSettings, SETTING_INFO, updateSettings } from '$lib/server/db';
+import { getSettings, purgePreview, SETTING_INFO, updateSettings } from '$lib/server/db';
 import { runNow } from '$lib/server/files';
 import { LAN_ENABLED, lanUrls, newPairingCode } from '$lib/server/access';
 
@@ -8,6 +8,7 @@ export function load({ locals, url }) {
 		settings: getSettings(),
 		info: SETTING_INFO,
 		local: locals.local,
+		purge: purgePreview(),
 		lan: { enabled: LAN_ENABLED, urls: LAN_ENABLED ? lanUrls(Number(url.port || 5173)) : [] }
 	};
 }

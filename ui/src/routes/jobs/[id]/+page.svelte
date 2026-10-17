@@ -14,7 +14,13 @@
 <svelte:head><title>{job.title} · JobHunter</title></svelte:head>
 
 <p class="small"><a href="/">← Jobs</a></p>
-<h1>{job.title}</h1>
+<h1 class="row" style="gap: 0.4rem; flex-wrap: nowrap; align-items: flex-start">
+	<form method="POST" action="?/favorite" use:enhance>
+		<button class="star" class:on={job.favorite} title={job.favorite ? 'Remove from favourites' : 'Add to favourites'}
+			aria-pressed={!!job.favorite} style="font-size: 1.6rem">{job.favorite ? '★' : '☆'}</button>
+	</form>
+	<span>{job.title}</span>
+</h1>
 <p class="muted">
 	{job.company ?? '–'} · {job.location ?? '–'} · {job.work_mode ?? 'work mode unknown'}
 	{#if job.employment_type}· {label(job.employment_type)}{/if}
@@ -31,10 +37,21 @@
 	<div class="row">
 		<span class="pill s-{job.status}">{label(job.status)}</span>
 		{#if job.attention_reason}<strong>{label(job.attention_reason)}</strong>{/if}
-		{#if job.fit_score !== null}<span>Fit <span class="score">{job.fit_score}</span>/100</span>{/if}
+		{#if job.fit_score !== null}<span>Fit <span class="score">{job.fit_score}</span>/100</span>
+		{:else}<span class="muted small">not scored yet</span>{/if}
 		<span class="grow"></span>
 		<a class="button secondary" href={job.url} target="_blank" rel="noopener noreferrer">Open posting ↗</a>
+		{#if job.apply_url}<a class="button" href={job.apply_url} target="_blank" rel="noopener noreferrer">Apply here ↗</a>{/if}
 	</div>
+	{#if form?.reevaluating}<div class="flash" style="margin-top: 0.6rem">{form.reevaluating}</div>{/if}
+	{#if job.status !== 'new' || job.fit_score !== null}
+		<form method="POST" action="?/reevaluate" use:enhance class="row" style="margin-top: 0.6rem">
+			<button class="secondary" title="Score this job again with the posting text it already has">🧮 {job.fit_score === null ? 'Score now' : 'Re-evaluate'}</button>
+			<span class="muted small">{job.status === 'skipped'
+				? 'Evaluated again from the current posting text; it can be shortlisted (documents if the fit reaches the threshold).'
+				: 'New fit score and notes from the current posting text; status and documents stay as they are.'}</span>
+		</form>
+	{/if}
 	{#if job.attention_reason}<p class="small">{ATTENTION_HELP[job.attention_reason] ?? ''}</p>{/if}
 
 	<div class="row" style="margin-top: 0.8rem">
@@ -54,6 +71,43 @@
 		{#if app?.applied_at}<span class="muted small">Applied {localTime(app.applied_at)}</span>{/if}
 	</div>
 </div>
+
+{#if data.followup}
+	{@const f = data.followup}
+	<div class="card" id="followup" style={f.due || f.noResponse ? 'border-color: var(--warn)' : ''}>
+		<h2 style="margin-top: 0">Follow-up</h2>
+		<p class="small" style="margin-top: 0">
+			Applied {f.days} {f.days === 1 ? 'day' : 'days'} ago, no reply recorded yet.
+			{#if f.followedUpAt}You followed up on {localTime(f.followedUpAt).split(',')[0]}.
+			{:else if f.due}Time for a short, polite follow-up.
+			{:else if f.after}A reminder comes after {f.after} days.{/if}
+			{#if f.noResponse}<br /><strong>No reply for {f.days} days.</strong> If you don't expect one any more, set the
+				status above to "rejected" (or "withdrawn" if you lost interest).{/if}
+		</p>
+		{#if form?.followedUp}<div class="flash">Recorded. No more follow-up reminders for this job.</div>{/if}
+		<div class="row">
+			<form method="POST" action="?/followuptext" use:enhance><button class="secondary">✉️ Show follow-up text</button></form>
+			{#if !f.followedUpAt}
+				<form method="POST" action="?/followedup" use:enhance><button class="secondary">✓ I followed up</button></form>
+			{/if}
+		</div>
+		{#if form?.followupText}
+			{@const t = form.followupText}
+			<div class="row" style="margin-top: 0.8rem">
+				<strong class="small">Subject:</strong> <span class="small grow">{t.subject}</span>
+				<CopyButton text={t.subject} label="Copy subject" />
+			</div>
+			<pre class="small" style="white-space: pre-wrap; margin: 0.5rem 0">{t.body}</pre>
+			<div class="row">
+				<CopyButton text={t.body} label="Copy text" />
+				{#if job.apply_email}
+					<a class="button secondary small" href="mailto:{job.apply_email}?subject={encodeURIComponent(t.subject)}&body={encodeURIComponent(t.body)}">Open in mail app</a>
+				{/if}
+				<span class="muted small">Send it yourself (JobHunter never sends email), then press "I followed up".</span>
+			</div>
+		{/if}
+	</div>
+{/if}
 
 {#if pending && app?.inferred_facts?.length}
 	<div class="card" style="border-color: var(--warn)">
@@ -106,6 +160,13 @@
 		· Apply via: {job.apply_method ?? '?'} {job.apply_email ?? ''}
 		· Source: {job.source} · Posted: {job.posted_at ?? '?'} · First seen: {localTime(job.first_seen_at)}
 	</p>
+	{#if form?.applySaved}<div class="flash">{form.applySaved}</div>{/if}
+	<form method="POST" action="?/applyto" use:enhance class="row">
+		<label for="apply-to" class="small">Where to apply</label>
+		<input id="apply-to" type="text" name="target" class="grow" value={job.apply_url ?? ''}
+			placeholder={job.apply_email ? `by email: ${job.apply_email} — or paste the application form link` : 'Application form link or email address'} />
+		<button class="secondary">Save</button>
+	</form>
 	{#if data.fitNotes}
 		<h2>Fit notes</h2>
 		<div class="prose">{@html data.fitNotes}</div>

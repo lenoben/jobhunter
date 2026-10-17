@@ -84,7 +84,7 @@ tbody tr:hover { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; }
 
 input, select, textarea, button { font: inherit; color: inherit; }
-input[type='text'], input[type='number'], input[type='search'], select, textarea {
+input[type='text'], input[type='number'], input[type='search'], input[type='url'], select, textarea {
 	background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.55rem; min-width: 0;
 }
 textarea { width: 100%; min-height: 4.5rem; }
@@ -127,3 +127,20 @@ legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
 	.hide-sm { display: none; }
 	th, td { padding: 0.45rem 0.4rem; }
 }
+
+/* ☆/★ favourite toggle (Jobs list, job page) */
+.star {
+	background: none; border: none; padding: 0 0.2rem; font-size: 1.15rem; line-height: 1;
+	color: var(--muted); cursor: pointer; box-shadow: none;
+}
+.star.on, .star:hover { color: #e0a800; background: none; }
+
+/* alert jobs waiting for review (Needs you) */
+.badge.review { background: var(--muted); }
+
+/* Chart series (dataviz reference palette, validated: light vs #ffffff, dark vs #1a2027) */
+:root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --grid: #e8ebef; }
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --grid: #2a323c; }
+}
+:root[data-theme='dark'] { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --grid: #2a323c; }
