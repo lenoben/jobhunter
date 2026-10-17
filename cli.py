@@ -217,7 +217,8 @@ def cmd_add_job(args: argparse.Namespace) -> int:
     db.init_db()
     conn = db.connect()
     try:
-        result = add_manual_job(conn, args.url, _read_text(args.text_file), args.title, args.company, args.location)
+        result = add_manual_job(conn, args.url, _read_text(args.text_file), args.title, args.company, args.location,
+                                args.apply_to)
     except ManualJobError as e:
         result = {"error": str(e)}
     finally:
@@ -242,6 +243,131 @@ def cmd_update_posting(args: argparse.Namespace) -> int:
     finally:
         conn.close()
     print(json.dumps(result, ensure_ascii=False) if args.json else result)
+    return 1 if "error" in result else 0
+
+
+def cmd_reevaluate(args: argparse.Namespace) -> int:
+    """Evaluate a job again with the posting text it already has (back to 'new')."""
+    import json
+
+    from core.manual import ManualJobError, reevaluate
+
+    conn = db.connect()
+    try:
+        result = reevaluate(conn, args.job)
+    except (ManualJobError, ValueError) as e:
+        result = {"error": str(e)}
+    finally:
+        conn.close()
+    print(json.dumps(result, ensure_ascii=False) if args.json else result)
+    return 1 if "error" in result else 0
+
+
+def cmd_apply_to(args: argparse.Namespace) -> int:
+    """Set where to apply for a job: a link, or an email address (empty clears the link)."""
+    import json
+
+    from core.manual import ManualJobError, set_apply_target
+
+    conn = db.connect()
+    try:
+        result = set_apply_target(conn, args.job, args.target)
+    except (ManualJobError, ValueError) as e:
+        result = {"error": str(e)}
+    finally:
+        conn.close()
+    print(json.dumps(result, ensure_ascii=False) if args.json else result)
+    return 1 if "error" in result else 0
+
+
+def cmd_followups(args: argparse.Namespace) -> int:
+    """Applications without a reply: due follow-ups and no-response reminders (--notify sends them)."""
+    import json
+
+    from core import followups
+
+    db.init_db()
+    conn = db.connect()
+    try:
+        if args.notify:
+            result = followups.send_reminders(conn)
+        else:
+            found = followups.due(conn)
+            result = {k: [{"id": j["id"], "title": j["title"], "company": j["company"], "days": j["days"]} for j in v]
+                      for k, v in found.items()}
+    finally:
+        conn.close()
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    elif args.notify:
+        print(f"follow-up reminders: {result['follow_up']} follow-up, {result['no_response']} no reply → {result['sent']}")
+    else:
+        for kind, jobs_ in result.items():
+            print(f"{kind}: {len(jobs_)}")
+            for j in jobs_:
+                print(f"  #{j['id']} {j['title']} – {j['company']} ({j['days']} days)")
+    return 0
+
+
+def cmd_followup_text(args: argparse.Namespace) -> int:
+    """A ready follow-up message (subject + body) for an applied job, in the application's language."""
+    import json
+
+    from core import followups
+    from core.profile import ProfileError, load_profile
+
+    conn = db.connect()
+    try:
+        job = next((j for j in followups.applied_jobs(conn) if j["id"] == args.job), None)
+        if job is None:
+            result = {"error": f"job {args.job} is not in status applied"}
+        else:
+            try:
+                name = (load_profile()[0].get("personal") or {}).get("name", "")
+            except ProfileError as e:
+                name = ""
+                print(f"[followup-text] {e}", file=sys.stderr)
+            result = followups.followup_text(job, name)
+    finally:
+        conn.close()
+    print(json.dumps(result, ensure_ascii=False) if args.json else result.get("error") or
+          f"Subject: {result['subject']}\n\n{result['body']}")
+    return 1 if "error" in result else 0
+
+
+def cmd_followed_up(args: argparse.Namespace) -> int:
+    import json
+
+    from core import followups
+
+    conn = db.connect()
+    try:
+        followups.mark_followed_up(conn, args.job)
+        result = {"ok": True}
+    except ValueError as e:
+        result = {"error": str(e)}
+    finally:
+        conn.close()
+    print(json.dumps(result) if args.json else result)
+    return 1 if "error" in result else 0
+
+
+def cmd_check_profile(args: argparse.Namespace) -> int:
+    """Validate a profile file (the UI's profile editor checks before saving)."""
+    import json
+    from pathlib import Path
+
+    from core.profile import ProfileError, load_profile
+
+    try:
+        _, warnings = load_profile(Path(args.path) if args.path else None)
+        result = {"ok": True, "warnings": warnings}
+    except ProfileError as e:
+        result = {"error": str(e)}
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        print(result.get("error") or "\n".join(["profile OK"] + [f"warning: {w}" for w in result["warnings"]]))
     return 1 if "error" in result else 0
 
 
@@ -319,13 +445,39 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--title")
     p.add_argument("--company")
     p.add_argument("--location")
+    p.add_argument("--apply-to", help="Where to apply: a link (ATS form) or an email address")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_add_job)
+    p = sub.add_parser("reevaluate", help="Evaluate a job again with its current posting text")
+    p.add_argument("job", type=int)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_reevaluate)
+    p = sub.add_parser("apply-to", help="Set where to apply for a job (link or email; empty clears)")
+    p.add_argument("job", type=int)
+    p.add_argument("target", nargs="?", default="")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_apply_to)
     p = sub.add_parser("update-posting", help="Add/replace a job's full posting; it gets evaluated again")
     p.add_argument("job", type=int)
     p.add_argument("--text-file", required=True)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_update_posting)
+    p = sub.add_parser("followups", help="List applications due for a follow-up / with no reply; --notify sends the reminders")
+    p.add_argument("--notify", action="store_true", help="Send due reminders by Telegram (each only once)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_followups)
+    p = sub.add_parser("followup-text", help="Print a ready follow-up message for an applied job")
+    p.add_argument("job", type=int)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_followup_text)
+    p = sub.add_parser("followed-up", help="Record that you sent a follow-up for a job")
+    p.add_argument("job", type=int)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_followed_up)
+    p = sub.add_parser("check-profile", help="Validate a profile YAML file (default: profile/profile.yaml)")
+    p.add_argument("--path", help="File to check instead of profile/profile.yaml")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_check_profile)
     sub.add_parser("rename-documents", help="Rename old cv.pdf/anschreiben.pdf files to <Name>_<Title>_<Doc>.pdf"
                    ).set_defaults(func=cmd_rename_documents)
     p = sub.add_parser("setting", help="Print one setting's value")

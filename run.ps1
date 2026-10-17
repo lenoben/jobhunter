@@ -5,8 +5,10 @@
 #   -Trigger docs ("Generate now" in the UI): only the write stage, only for jobs the user requested
 #   -Trigger single -JobId N ("Evaluate now"): evaluate one job (filter model), then write its
 #                    documents if it meets the criteria (writer model)
+#   -Trigger evaluate ("Score waiting jobs"): stage 1 evaluates the backlog of new jobs without
+#                    searching (no time guard), then the normal write stage
 param(
-    [ValidateSet('scheduled', 'manual', 'docs', 'single')]
+    [ValidateSet('scheduled', 'manual', 'docs', 'single', 'evaluate')]
     [string]$Trigger = 'scheduled',
     [int]$JobId = 0
 )
@@ -91,10 +93,17 @@ if ($Trigger -eq 'docs') {
     exit $code
 }
 
-$code = Invoke-Stage 'filter' (Get-Model 'model_filter' 'haiku')
+# Follow-up reminders (applications without a reply) go out before the run, so they also arrive
+# when the time guard refuses it. A failure here never stops the run.
+if ($Trigger -in @('scheduled', 'manual')) {
+    uv run python cli.py followups --notify *>&1 | Tee-Object -FilePath $log -Append | Out-Host
+}
+
+$stage1 = if ($Trigger -eq 'evaluate') { 'evaluate' } else { 'filter' }
+$code = Invoke-Stage $stage1 (Get-Model 'model_filter' 'haiku')
 
 if ($code -ne 0) {
-    Send-Failure "filter stage: claude exited with code $code"
+    Send-Failure "$stage1 stage: claude exited with code $code"
 } elseif (Test-RunOpen) {
     # Stage 1 left the run open, as it should: the writer stage continues it and calls finish_run.
     $code = Invoke-Stage 'write' (Get-Model 'model_writer' 'sonnet')
