@@ -32,7 +32,12 @@ review, adjust and apply. **It never submits an application — you always do.**
   - job pages with fit notes, PDFs and interview prep;
   - an **Apply kit** with copy buttons and a prompt for the Claude browser extension that never
     clicks submit;
-  - search filters and run history.
+  - search filters and run history;
+  - an **Applications** list, exportable as CSV or as a printable German record of your
+    applications (Nachweis der Eigenbemühungen) for the Agentur für Arbeit / Jobcenter;
+  - a **profile editor**, including your motivation per job category.
+- **Follow-up reminders:** a Telegram message when an application has had no reply for 14 days,
+  with a ready follow-up text, and again after 6 weeks.
 - **Email drafts** (never sent) with the PDFs attached, for jobs that apply by email.
 
 ## How it works
