@@ -32,8 +32,8 @@
 	German, as asked for as proof of your own job search (Eigenbemühungen). Check it before handing it in.</p>
 
 {#if data.rows.length}
-	<div class="card" style="padding: 0; overflow-x: auto">
-		<table>
+	<div class="card apps" style="padding: 0; overflow-x: auto">
+		<table class="stack">
 			<thead>
 				<tr><th>Applied</th><th>Job</th><th class="hide-sm">How / where found</th><th>Status</th><th>Follow-up</th></tr>
 			</thead>
@@ -41,7 +41,7 @@
 				{#each data.rows as r}
 					<tr>
 						<td class="small">{localTime(r.applied_at).split(',')[0]}<div class="muted">{r.days} days ago</div></td>
-						<td><a href="/jobs/{r.id}">{r.title}</a><div class="muted small">{r.company ?? '–'}{r.location ? ` · ${r.location}` : ''}</div></td>
+						<td class="full first"><a href="/jobs/{r.id}">{r.title}</a><div class="muted small">{r.company ?? '–'}{r.location ? ` · ${r.location}` : ''}</div></td>
 						<td class="hide-sm small">{r.methodLabel}<div class="muted">{r.sourceLabel}</div></td>
 						<td><span class="pill s-{r.status}">{label(r.status)}</span>
 							{#if r.status !== 'applied' && r.status_at}<div class="muted small">{localTime(r.status_at).split(',')[0]}</div>{/if}</td>

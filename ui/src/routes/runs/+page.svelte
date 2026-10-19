@@ -26,7 +26,7 @@
 
 <h1>Runs</h1>
 <div class="table-wrap">
-	<table>
+	<table class="stack">
 		<thead>
 			<tr><th>#</th><th>Started</th><th class="hide-sm">Finished</th><th>Trigger</th><th>Status</th>
 				<th>Found</th><th>New</th><th>Docs</th><th>Need you</th><th>Errors</th></tr>
@@ -34,16 +34,16 @@
 		<tbody>
 			{#each data.runs as r (r.id)}
 				<tr>
-					<td>{r.id}</td>
+					<td><strong>#{r.id}</strong></td>
 					<td class="small">{localTime(r.started_at)}</td>
 					<td class="small hide-sm">{localTime(r.finished_at)}</td>
 					<td class="small">{r.trigger}</td>
-					<td><span class="pill {r.status === 'ok' ? 's-docs_ready' : r.status === 'failed' ? 's-rejected' : r.status === 'partial' ? 's-needs_attention' : ''}">{r.status}</span></td>
-					<td class="score">{r.found}</td>
-					<td class="score">{r.new_jobs}</td>
-					<td class="score">{r.tailored}</td>
-					<td class="score">{r.needs_you}</td>
-					<td class="small">
+					<td class="grow"><span class="pill {r.status === 'ok' ? 's-docs_ready' : r.status === 'failed' ? 's-rejected' : r.status === 'partial' ? 's-needs_attention' : ''}">{r.status}</span></td>
+					<td class="score" data-label="Found">{r.found}</td>
+					<td class="score" data-label="New">{r.new_jobs}</td>
+					<td class="score" data-label="Docs">{r.tailored}</td>
+					<td class="score" data-label="Need you">{r.needs_you}</td>
+					<td class="small full">
 						{#each grouped(r.errors, r.source_searches) as g}
 							<div>
 								{g.kind === 'failed' || g.kind === 'run' ? '❌' : '⚠️'}

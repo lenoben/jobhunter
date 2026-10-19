@@ -32,15 +32,15 @@
 				<button name="decision" value="skip" class="ghost" disabled={!picked.length}>Not interested</button>
 			</div>
 			<div class="table-wrap">
-				<table>
+				<table class="stack">
 					<thead><tr><th></th><th>Title</th><th>Company</th><th class="hide-sm">Location</th><th class="hide-sm">Received</th></tr></thead>
 					<tbody>
 						{#each data.review as j (j.id)}
 							<tr>
 								<td><input type="checkbox" name="id" value={j.id} bind:group={picked} aria-label="Select {j.title}" /></td>
-								<td><a href="/jobs/{j.id}">{j.title}</a>
+								<td class="fill"><a href="/jobs/{j.id}">{j.title}</a>
 									<a class="muted small" href={j.url} target="_blank" rel="noopener noreferrer" title="Open the posting">↗</a></td>
-								<td>{j.company ?? '–'}</td>
+								<td class="full indent">{j.company ?? '–'}<span class="show-sm muted">{j.location ? ` · ${j.location}` : ''}</span></td>
 								<td class="hide-sm">{j.location ?? '–'}{j.work_mode ? ` · ${j.work_mode}` : ''}</td>
 								<td class="hide-sm muted small">{j.posted_at ?? localTime(j.first_seen_at)}</td>
 							</tr>

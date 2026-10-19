@@ -84,7 +84,7 @@ tbody tr:hover { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; }
 
 input, select, textarea, button { font: inherit; color: inherit; }
-input[type='text'], input[type='number'], input[type='search'], input[type='url'], select, textarea {
+input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], select, textarea {
 	background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.55rem; min-width: 0;
 }
 textarea { width: 100%; min-height: 4.5rem; }
@@ -108,7 +108,7 @@ legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
 .s-shortlisted { color: var(--accent); }
 .s-docs_ready { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
 .s-needs_attention { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-.s-applied, .s-interview, .s-offer { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.s-applied, .s-feedback, .s-interview, .s-offer { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 .s-rejected, .s-withdrawn { color: var(--bad); }
 .s-skipped { color: var(--muted); }
 .score { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -123,9 +123,46 @@ legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
 .kit-row { padding: 0.25rem 0; border-bottom: 1px solid var(--border); }
 .path { overflow-wrap: anywhere; color: var(--muted); }
 
+.prose table { display: block; overflow-x: auto; }
+.show-sm { display: none; }
+
 @media (max-width: 700px) {
 	.hide-sm { display: none; }
+	.show-sm { display: revert; }
 	th, td { padding: 0.45rem 0.4rem; }
+	main { padding: 1rem 12px 3rem; }
+	h1 { font-size: 1.3rem; }
+	.card { padding: 0.8rem; }
+
+	/* the menu: one row you swipe sideways instead of three sticky rows */
+	header nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0.35rem 8px; }
+	header nav::-webkit-scrollbar { display: none; }
+	header nav a { white-space: nowrap; }
+	header nav .brand { margin-right: 0.25rem; }
+
+	/* 16px stops iOS from zooming into a field; text fields in a row get a line of their own */
+	input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], select, textarea { font-size: 16px; }
+	.row > :is(input[type='text'], input[type='search'], input[type='url']) { flex: 1 1 100%; }
+	button, .button { padding: 0.45rem 0.8rem; }
+
+	/* table.stack: each row becomes a card; td[data-label] shows its column name */
+	table.stack, table.stack tbody { display: block; border: 0; background: none; }
+	table.stack thead { display: none; }
+	table.stack tr {
+		display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem;
+		background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+		padding: 0.6rem 0.7rem; margin-bottom: 0.5rem;
+	}
+	table.stack td { display: block; border: 0; padding: 0; min-width: 0; overflow-wrap: anywhere; }
+	table.stack td[data-label]::before { content: attr(data-label) ' '; color: var(--muted); font-size: 0.8rem; }
+	table.stack td.full { flex-basis: 100%; }
+	table.stack td.grow { flex: 1 1 auto; }
+	table.stack td.fill { flex: 1 1 0; }
+	table.stack td.first { order: -1; }
+	table.stack td.indent { padding-left: 1.9rem; }
+	table.stack td:empty, table.stack td.hide-sm { display: none; }
+	.table-wrap:has(> table.stack) { overflow: visible; }
+	.card:has(> table.stack) { background: none; border: 0; padding: 0; }
 }
 
 /* ☆/★ favourite toggle (Jobs list, job page) */
@@ -139,8 +176,8 @@ legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
 .badge.review { background: var(--muted); }
 
 /* Chart series (dataviz reference palette, validated: light vs #ffffff, dark vs #1a2027) */
-:root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --grid: #e8ebef; }
+:root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4; --grid: #e8ebef; }
 @media (prefers-color-scheme: dark) {
-	:root:not([data-theme='light']) { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --grid: #2a323c; }
+	:root:not([data-theme='light']) { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181; --grid: #2a323c; }
 }
-:root[data-theme='dark'] { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --grid: #2a323c; }
+:root[data-theme='dark'] { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181; --grid: #2a323c; }

@@ -4,7 +4,7 @@
 
 	let { data, form } = $props();
 	const total = $derived(Object.values(data.counts).reduce((a: number, b: number) => a + b, 0));
-	const CLOSED = ['applied', 'interview', 'offer', 'rejected', 'withdrawn'];
+	const CLOSED = ['applied', 'feedback', 'interview', 'offer', 'rejected', 'withdrawn'];
 
 	/** Current query with some parameters replaced (page resets unless given). */
 	function href(changes: Record<string, string | number>) {
@@ -33,7 +33,7 @@
 	const columns = [
 		{ key: 'title', label: 'Title' },
 		{ key: 'company', label: 'Company' },
-		{ key: 'location', label: 'Location', cls: 'hide-sm' },
+		{ key: 'location', label: 'Location' },
 		{ key: 'work_mode', label: 'Mode', cls: 'hide-sm' },
 		{ key: 'fit', label: 'Fit' },
 		{ key: 'status', label: 'Status' },
@@ -85,7 +85,7 @@
 	</form>
 </details>
 
-<form class="card row" method="GET">
+<form class="card row filters" method="GET">
 	<input type="search" name="q" placeholder="Search title, company, location" value={data.params.q} class="grow" />
 	<select name="status" aria-label="Status">
 		<option value="open" selected={data.params.status === 'open'}>All except skipped</option>
@@ -113,8 +113,15 @@
 	<a class="button secondary" href="/">Reset</a>
 </form>
 
+<nav class="row sort-sm show-sm" aria-label="Sort">
+	<span class="muted small">Sort:</span>
+	{#each [['fit', 'Fit'], ['first_seen', 'Newest'], ['title', 'Title'], ['company', 'Company'], ['status', 'Status']] as [key, name]}
+		<a class="button secondary small" class:on={data.params.sort === key} href={sortHref(key)}>{name}{arrow(key)}</a>
+	{/each}
+</nav>
+
 <div class="table-wrap">
-	<table>
+	<table class="stack jobs">
 		<thead>
 			<tr>
 				<th aria-label="Favourite"></th>
@@ -136,18 +143,18 @@
 								aria-pressed={!!j.favorite}>{j.favorite ? '★' : '☆'}</button>
 						</form>
 					</td>
-					<td><a href="/jobs/{j.id}">{j.title}</a></td>
-					<td>{j.company ?? '–'}</td>
-					<td class="hide-sm">{j.location ?? '–'}</td>
+					<td class="title"><a href="/jobs/{j.id}">{j.title}</a></td>
+					<td class="company">{j.company ?? '–'}</td>
+					<td class="location">{j.location ?? '–'}</td>
 					<td class="hide-sm">{j.work_mode ?? '–'}</td>
-					<td class="score">{j.fit_score ?? ''}</td>
-					<td>
+					<td class="score fit">{j.fit_score ?? ''}</td>
+					<td class="status">
 						<span class="pill s-{j.status}" title={j.attention_reason ?? ''}>{label(j.status)}</span>
 						{#if j.attention_reason}<div class="muted small">{label(j.attention_reason)}</div>{/if}
 						{#if j.docs_requested}<div class="muted small">✍️ documents requested</div>{/if}
 					</td>
 					<td class="hide-sm muted small">{localTime(j.first_seen_at)}</td>
-					<td>
+					<td class="actions">
 						<div class="row" style="gap: 0.3rem; flex-wrap: nowrap">
 							{#if !CLOSED.includes(j.status) && !j.has_docs && !j.docs_requested}
 								<form method="POST" action="?/docs" use:enhance>
@@ -191,4 +198,23 @@
 	.pager { margin-top: 0.8rem; }
 	.active-size { font-weight: 700; text-decoration: underline; }
 	.fav-cell { width: 1.8rem; padding-right: 0; }
+	.filters input[type='search'] { flex: 1 1 16rem; }
+	.sort-sm { margin-bottom: 0.6rem; gap: 0.35rem; }
+	.sort-sm .button { padding: 0.15rem 0.55rem; font-size: 0.82rem; }
+	.sort-sm .on { border-color: var(--accent); color: var(--accent); }
+
+	/* phone: one card per job — ☆ title · fit / company · city / status … buttons */
+	@media (max-width: 700px) {
+		.sort-sm { display: flex; }
+		.filters select { flex: 1 1 9rem; }
+		.filters button, .filters .button { flex: 1 1 auto; text-align: center; }
+		.jobs .fav-cell { width: auto; }
+		.jobs .title { flex: 1 1 calc(100% - 6rem); font-weight: 600; }
+		.jobs .fit::before { content: 'Fit '; color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+		.jobs .company { order: 1; margin-left: 1.9rem; color: var(--muted); }
+		.jobs .location { order: 1; flex: 1 1 auto; color: var(--muted); font-size: 0.9rem; }
+		.jobs .location::before { content: '· '; }
+		.jobs .status { order: 2; margin-left: 1.9rem; flex: 1 1 auto; }
+		.jobs .actions { order: 2; margin-left: auto; }
+	}
 </style>

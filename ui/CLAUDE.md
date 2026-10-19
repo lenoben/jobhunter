@@ -54,3 +54,31 @@ relaxes "bind to 127.0.0.1 only":
   write requests.
 - `serve.js` runs its own HTTP server that sets the protocol header, because adapter-node otherwise
   assumes https and the same-origin check rejects every form.
+
+**Phones (2026-10-21):** below 700px the menu is one sideways-scrolling row (the current page's
+link is scrolled into view), text fields take their own line, and inputs use 16px (no iOS zoom).
+`table.stack` (app.css) turns a table into one card per row; `td[data-label]` shows its column
+name, `td.full` takes a whole line, `td.first` moves to the top. Used by Jobs (with a sort bar
+instead of the hidden headers), Runs, Needs you (alert review), Applications and Job boards.
+Checked with DevTools phone emulation at 390px: no page is wider than the screen.
+
+**Reverse tunnel** (user request 2026-10-21, e.g. Cloudflare). This relaxes R4 further: the UI is
+reachable from the internet and its traffic passes through the tunnel provider.
+- `.env`: `UI_TUNNEL_HOSTS` = the tunnel's host names (`.trycloudflare.com` = any quick tunnel, or
+  your own hostname), plus `UI_SESSION_SECRET`.
+- cloudflared connects from loopback, so `hooks.server.ts` recognises a tunnel request by its Host
+  header (`access.isTunnelHost`) and treats it like a hotspot device: a paired `jh_device` cookie
+  (Secure over the tunnel) or `/login`. Without that check every tunnel visitor would count as
+  "this PC". Pairing codes are still created only on the PC itself.
+- The same-origin check accepts `https://<tunnel host>` (TLS ends at Cloudflare). `serve.js`
+  reports https to SvelteKit when cloudflared, from loopback only, sends `X-Forwarded-Proto: https`.
+- **Production server only** (`npm run build`, `npm start`). Vite's dev server serves its own file
+  routes (`/@fs/`, `/src/…`) outside the guard, so `vite.config.ts` doesn't allow tunnel hosts.
+- Start: `cloudflared tunnel --url http://127.0.0.1:5173` (127.0.0.1, not localhost: the server
+  listens on IPv4 only). A quick tunnel gets a new URL each start, so devices pair again; a named
+  tunnel with a fixed hostname keeps them paired.
+
+**My notes** (user request 2026-10-22): the job page has a "My notes" card below the status, a
+free-text field for the user's own notes on the application process (calls, contacts, next steps).
+Saved in `jobs.user_notes` with `user_notes_at` (migration 017) by `db.saveUserNotes`, max 20,000
+characters; an empty field clears them. Never read by Claude or used in the documents.

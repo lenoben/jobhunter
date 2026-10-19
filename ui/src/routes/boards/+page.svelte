@@ -42,7 +42,7 @@
 </form>
 
 <div class="table-wrap">
-	<table>
+	<table class="stack">
 		<thead><tr><th>Board</th><th class="hide-sm">Note</th><th class="hide-sm">Last opened</th><th></th></tr></thead>
 		<tbody>
 			{#each data.boards as b (b.id)}
@@ -62,7 +62,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td>
+						<td class="fill">
 							<a href="/boards/{b.id}/open" target="_blank" rel="noopener noreferrer"><strong>{b.name}</strong> ↗</a>
 							<div class="muted small url">{b.url}</div>
 						</td>

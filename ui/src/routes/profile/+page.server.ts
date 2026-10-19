@@ -18,12 +18,14 @@ export const actions = {
 		const entries: Record<string, string> = {};
 		for (const [k, v] of f.entries()) if (k.startsWith('m:')) entries[k.slice(2)] = String(v);
 		const r = saveMotivations(entries);
-		return r.ok ? { saved: 'motivation', warnings: r.warnings } : fail(400, { error: r.error });
+		if ('error' in r) return fail(400, { error: r.error });
+		return { saved: 'motivation', warnings: r.warnings };
 	},
 	/** The whole file, checked by core/profile.py before it is replaced (previous version backed up). */
 	raw: async ({ request }) => {
 		const text = String((await request.formData()).get('text') ?? '').replace(/\r\n/g, '\n');
 		const r = saveProfileText(text);
-		return r.ok ? { saved: 'raw', warnings: r.warnings } : fail(400, { error: r.error, text });
+		if ('error' in r) return fail(400, { error: r.error, text });
+		return { saved: 'raw', warnings: r.warnings };
 	}
 };

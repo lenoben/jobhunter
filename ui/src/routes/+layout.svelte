@@ -21,6 +21,16 @@
 		return href === '/' ? p === '/' || p.startsWith('/jobs') : p.startsWith(href);
 	}
 
+	// Phones: the menu is one sideways-scrolling row; keep the current page's link in view.
+	let navEl: HTMLElement | undefined = $state();
+	$effect(() => {
+		page.url.pathname;
+		const a = navEl?.querySelector<HTMLElement>('a.active');
+		if (navEl && a && navEl.scrollWidth > navEl.clientWidth) {
+			navEl.scrollLeft = a.offsetLeft - navEl.clientWidth / 2 + a.offsetWidth / 2;
+		}
+	});
+
 	function toggleTheme() {
 		const root = document.documentElement;
 		const dark = root.dataset.theme
@@ -34,7 +44,7 @@
 </script>
 
 <header>
-	<nav>
+	<nav bind:this={navEl}>
 		<a class="brand" href="/">🔎 JobHunter</a>
 		{#each links as l}
 			<a href={l.href} class:active={active(l.href)}>
