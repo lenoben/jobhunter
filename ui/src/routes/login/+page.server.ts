@@ -13,7 +13,7 @@ const MESSAGES = {
 };
 
 export const actions = {
-	default: async ({ request, cookies, locals }) => {
+	default: async ({ request, cookies, locals, url }) => {
 		if (locals.local) redirect(303, '/');
 		// Tolerate spaces/dashes and full-width digits from tablet keyboards.
 		const code = String((await request.formData()).get('code') ?? '')
@@ -25,7 +25,7 @@ export const actions = {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
-			secure: false, // plain HTTP inside the hotspot
+			secure: locals.tunnel || url.protocol === 'https:', // plain HTTP inside the hotspot; https via the tunnel
 			maxAge: 60 * 60 * 24 * 365
 		});
 		redirect(303, '/');

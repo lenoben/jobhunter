@@ -16,7 +16,10 @@ process.env.PROTOCOL_HEADER = 'x-jobhunter-proto';
 const { handler } = await import('./build/handler.js');
 
 createServer((req, res) => {
-	req.headers['x-jobhunter-proto'] = 'http';
+	// A reverse tunnel (cloudflared, from this PC) ends TLS at Cloudflare and says so in
+	// X-Forwarded-Proto. Only trusted from loopback: hotspot devices could send it themselves.
+	const loopback = /^(::1|(::ffff:)?127\.)/.test(req.socket.remoteAddress ?? '');
+	req.headers['x-jobhunter-proto'] = loopback && req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
 	handler(req, res);
 }).listen(port, host, () => {
 	console.log(`JobHunter UI on http://localhost:${port}/` + (lan ? ' (hotspot devices: see Settings)' : ' (this PC only)'));

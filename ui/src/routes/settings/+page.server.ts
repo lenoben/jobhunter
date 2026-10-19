@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { getSettings, purgePreview, SETTING_INFO, updateSettings } from '$lib/server/db';
 import { runNow } from '$lib/server/files';
-import { LAN_ENABLED, lanUrls, newPairingCode } from '$lib/server/access';
+import { LAN_ENABLED, lanUrls, newPairingCode, PAIRING_ENABLED } from '$lib/server/access';
 
 export function load({ locals, url }) {
 	return {
@@ -9,7 +9,7 @@ export function load({ locals, url }) {
 		info: SETTING_INFO,
 		local: locals.local,
 		purge: purgePreview(),
-		lan: { enabled: LAN_ENABLED, urls: LAN_ENABLED ? lanUrls(Number(url.port || 5173)) : [] }
+		lan: { enabled: PAIRING_ENABLED, urls: LAN_ENABLED ? lanUrls(Number(url.port || 5173)) : [] }
 	};
 }
 
@@ -62,7 +62,7 @@ export const actions = {
 	/** Only on the PC itself: a one-time code for a hotspot device (never shown to LAN clients). */
 	pair: async ({ locals }) => {
 		if (!locals.local) return fail(403, { errors: ['Pairing codes can only be created on the PC itself.'] });
-		if (!LAN_ENABLED) return fail(400, { errors: ['Hotspot access is off (UI_LAN=1 and UI_SESSION_SECRET in .env).'] });
+		if (!PAIRING_ENABLED) return fail(400, { errors: ['Device access is off (UI_LAN=1 or UI_TUNNEL_HOSTS, plus UI_SESSION_SECRET, in .env).'] });
 		return { pairing: newPairingCode() };
 	}
 };

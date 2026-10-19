@@ -2,6 +2,7 @@
 //  - Loopback (this PC): always, no login.
 //  - Devices in UI_LAN_SUBNETS (default: the Windows hotspot 192.168.137.0/24), only if UI_LAN=1,
 //    and only with a device cookie obtained by entering a one-time pairing code shown on the PC.
+//  - Requests through a reverse tunnel (Host in UI_TUNNEL_HOSTS): the same paired device cookie.
 //  - Everything else: refused.
 // UI_SESSION_SECRET (in .env, R3) signs the device cookies; it is never sent to a browser.
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
@@ -30,6 +31,19 @@ const env = { ...readUiEnv(), ...Object.fromEntries(Object.entries(process.env).
 const SECRET = env.UI_SESSION_SECRET ?? '';
 export const LAN_ENABLED = env.UI_LAN === '1' && SECRET.length >= 32;
 const SUBNETS = (env.UI_LAN_SUBNETS || '192.168.137.0/24').split(',').map((s) => s.trim()).filter(Boolean);
+
+// Reverse tunnel (e.g. Cloudflare, user request 2026-10-21): cloudflared connects from loopback,
+// so a tunnel request is recognised by its Host header, never by its IP. Entries are exact host
+// names or ".domain" (any subdomain). Tunnel visitors need a paired device cookie, like hotspot devices.
+const TUNNEL_HOSTS = (env.UI_TUNNEL_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+export const TUNNEL_ENABLED = TUNNEL_HOSTS.length > 0 && SECRET.length >= 32;
+/** Device pairing is possible (hotspot and/or tunnel). */
+export const PAIRING_ENABLED = LAN_ENABLED || TUNNEL_ENABLED;
+
+export function isTunnelHost(hostname: string): boolean {
+	const h = hostname.toLowerCase();
+	return TUNNEL_ENABLED && TUNNEL_HOSTS.some((t) => (t.startsWith('.') ? h.endsWith(t) && h.length > t.length : h === t));
+}
 
 function ipv4(ip: string): number | null {
 	const m = ip.replace(/^::ffff:/i, '').match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
@@ -68,7 +82,7 @@ export function newDeviceCookie(): string {
 }
 
 export function validDeviceCookie(value: string | undefined): boolean {
-	if (!LAN_ENABLED || !value) return false;
+	if (!PAIRING_ENABLED || !value) return false;
 	const [id, mac] = value.split('.');
 	if (!id || !mac) return false;
 	const expected = Buffer.from(sign(id));
