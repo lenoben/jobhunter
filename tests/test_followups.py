@@ -84,11 +84,13 @@ def test_failed_telegram_marks_nothing(conn, monkeypatch):
 
 
 def test_followup_text_in_the_application_language(conn):
-    de = next(j for j in followups.applied_jobs(conn) if j["id"] == _applied(conn, 1, 15))
+    de_id = _applied(conn, 1, 15)
+    de = next(j for j in followups.applied_jobs(conn) if j["id"] == de_id)
     t = followups.followup_text(de, "Alex Beispiel")
     assert t["language"] == "de" and t["subject"] == "Nachfrage zu meiner Bewerbung als Backend Developer"
     assert "(m/w/d)" not in t["body"] and t["body"].endswith("Mit freundlichen Grüßen\nAlex Beispiel")
-    en = next(j for j in followups.applied_jobs(conn) if j["id"] == _applied(conn, 2, 15, "Data Engineer (all genders)", "en"))
+    en_id = _applied(conn, 2, 15, "Data Engineer (all genders)", "en")
+    en = next(j for j in followups.applied_jobs(conn) if j["id"] == en_id)
     t = followups.followup_text(en, "Alex Beispiel")
     assert t["subject"] == "Follow-up on my application for Data Engineer" and "at ACME GmbH" in t["body"]
 
@@ -98,3 +100,13 @@ def test_check_profile_reports_errors(tmp_path):
     bad.write_text("personal: {name: X}\n", encoding="utf-8")
     with pytest.raises(ProfileError, match="missing required section"):
         load_profile(bad)
+
+
+def test_feedback_status_stops_reminders(conn, sent):
+    """2026-10-21: the employer replied without an interview (status feedback): no follow-up reminder,
+    and the user may set the status (it is a user-only status)."""
+    jid = _applied(conn, 5, 50)
+    jobs.set_status(conn, jid, "feedback", "user", note="response: asked for references")
+    found = followups.due(conn)
+    assert jid not in [j["id"] for j in found["follow_up"] + found["no_response"]]
+    assert followups.send_reminders(conn)["sent"] == "nothing to send" and not sent

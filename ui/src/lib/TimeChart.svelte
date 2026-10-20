@@ -36,7 +36,8 @@
 		if (period === 'month') return d.toLocaleDateString('de-DE', long ? { month: 'long', year: 'numeric' } : { month: 'short' });
 		return d.toLocaleDateString('de-DE', long ? { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' } : { day: '2-digit', month: '2-digit' });
 	}
-	const every = $derived(period === 'month' ? 1 : Math.ceil(rows.length / Math.max(2, Math.floor(plotW / 56))));
+	// thin the x labels to what fits: ~36px per month name ("Nov"), ~56px per date
+	const every = $derived(Math.ceil(rows.length / Math.max(2, Math.floor(plotW / (period === 'month' ? 36 : 56)))));
 	const fmtNum = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}K` : String(Math.round(v)));
 
 	// column with a 4px rounded top (data end), square at the baseline

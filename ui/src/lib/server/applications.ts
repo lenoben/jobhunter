@@ -36,7 +36,7 @@ export function methodLabel(r: { apply_method: string | null; method: string | n
 }
 
 export const OUTCOME: Record<string, string> = {
-	applied: 'offen', interview: 'Vorstellungsgespräch', offer: 'Zusage', rejected: 'Absage', withdrawn: 'zurückgezogen'
+	applied: 'offen', feedback: 'Rückmeldung erhalten', interview: 'Vorstellungsgespräch', offer: 'Zusage', rejected: 'Absage', withdrawn: 'zurückgezogen'
 };
 
 export function germanDate(utc: string | null): string {

@@ -9,13 +9,14 @@
 		{ label: 'Scored', value: sum('scored'), sub: range },
 		{ label: 'Documents written', value: sum('docs'), sub: range },
 		{ label: 'Applied', value: sum('applied'), sub: range },
+		{ label: 'Feedback received', value: sum('feedback'), sub: range },
 		{ label: 'Interviews / offers', value: sum('interview'), sub: range }
 	]);
 	// one small chart per status (same time axis; each has its own scale) — in pipeline order
 	const STEPS: [string, string][] = [
 		['found', 'Found'], ['scored', 'Scored'], ['shortlisted', 'Shortlisted'], ['skipped_fit', 'Skipped (fit/rules)'],
 		['not_interested', 'Not interested (you)'], ['flagged', 'Flagged: needs you'], ['review', 'Alert jobs to review'],
-		['docs', 'Documents ready'], ['applied', 'Applied'], ['interview_only', 'Interview'], ['offer', 'Offer'],
+		['docs', 'Documents ready'], ['applied', 'Applied'], ['feedback', 'Feedback received'], ['interview_only', 'Interview'], ['offer', 'Offer'],
 		['rejected_only', 'Rejected'], ['withdrawn', 'Withdrawn']
 	];
 	const per = $derived(data.period === 'day' ? 'per day' : 'per month');
@@ -24,7 +25,8 @@
 		['Shortlisted', data.counts.shortlisted ?? 0, '/?status=shortlisted'],
 		['Documents ready', data.counts.docs_ready ?? 0, '/?status=docs_ready'],
 		['Applied', data.counts.applied ?? 0, '/?status=applied'],
-		['Interview', data.counts.interview ?? 0, '/?status=interview'],
+		['Feedback received', data.counts.feedback ?? 0, '/?status=feedback'],
+		['Interview',data.counts.interview ?? 0, '/?status=interview'],
 		['Offer', data.counts.offer ?? 0, '/?status=offer'],
 		['Needs you', data.counts.needs_attention ?? 0, '/attention']
 	] as [string, number, string][]);
@@ -51,8 +53,9 @@
 	series={[
 		{ key: 'docs', label: 'Documents ready', color: '--series-1' },
 		{ key: 'applied', label: 'Applied', color: '--series-2' },
-		{ key: 'interview', label: 'Interview / offer', color: '--series-3' },
-		{ key: 'rejected', label: 'Rejected / withdrawn', color: '--series-4' }
+		{ key: 'feedback', label: 'Feedback received', color: '--series-3' },
+		{ key: 'interview', label: 'Interview / offer', color: '--series-4' },
+		{ key: 'rejected', label: 'Rejected / withdrawn', color: '--series-5' }
 	]} />
 
 <h2 class="section">Every status <span class="muted small">jobs reaching each status, {per} · each chart has its own scale</span></h2>

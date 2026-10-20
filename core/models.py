@@ -13,9 +13,10 @@ ApplyMethod = Literal["portal", "email", "external_ats", "unknown"]
 
 JOB_STATUSES = (
     "new", "skipped", "shortlisted", "docs_ready", "needs_attention",
-    "applied", "interview", "offer", "rejected", "withdrawn",
+    "applied", "feedback", "interview", "offer", "rejected", "withdrawn",
 )
-USER_ONLY_STATUSES = ("applied", "interview", "offer", "rejected", "withdrawn")
+# feedback: the employer replied after the application, but not (yet) with an interview (2026-10-21)
+USER_ONLY_STATUSES = ("applied", "feedback", "interview", "offer", "rejected", "withdrawn")
 ATTENTION_REASONS = (
     "needs_login", "captcha", "form_unclear", "missing_profile_info",
     "german_only_form", "source_error", "work_authorization", "below_blue_card_threshold",

@@ -8,8 +8,11 @@ export function localTime(utc: string | null | undefined): string {
 	return d.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+// Statuses whose key doesn't read well as-is.
+const LABELS: Record<string, string> = { feedback: 'Feedback received' };
+
 export function label(s: string | null | undefined): string {
-	return (s ?? '').replace(/_/g, ' ');
+	return LABELS[s ?? ''] ?? (s ?? '').replace(/_/g, ' ');
 }
 
 export const ATTENTION_HELP: Record<string, string> = {
