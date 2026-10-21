@@ -17,7 +17,8 @@ LETTER_FILES = {"de": "anschreiben.pdf", "en": "cover_letter.pdf"}  # legacy nam
 # Document file names (user request 2026-10-16): <Name>_<Job_title>_<Document>.pdf, e.g.
 # Max_Mustermann_Backend_Developer_Lebenslauf.pdf. The suffix says what it is.
 DOC_SUFFIXES = {("cv", "de"): "Lebenslauf", ("cv", "en"): "CV",
-                ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover_Letter"}
+                ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover_Letter",
+                ("motivation", "de"): "Motivationsschreiben", ("motivation", "en"): "Motivation_Letter"}
 _LEGACY = {"cv.pdf": ("cv", None), "anschreiben.pdf": ("letter", "de"), "cover_letter.pdf": ("letter", "en")}
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\.pdf$")
 _TRANSLIT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
@@ -33,13 +34,17 @@ def _slug(text: str, max_len: int) -> str:
 
 def document_filename(person: str, job_title: str, kind: str, lang: str) -> str:
     """'Max Mustermann', 'Webentwickler React / Angular (m/w/d)', 'cv', 'de' →
-    'Max_Mustermann_Webentwickler_React_Angular_Lebenslauf.pdf' (ASCII-safe for upload forms)."""
+    'Max_Mustermann_Webentwickler_React_Angular_Lebenslauf.pdf' (ASCII-safe for upload forms).
+    Only the first and the last word of the name (user request 2026-10-22): 'Max Peter Mustermann' →
+    'Max_Mustermann'."""
+    words = (person or "").split()
+    person = " ".join(words[:1] + words[-1:]) if len(words) > 1 else " ".join(words)
     parts = [p for p in (_slug(person, 60), _slug(job_title, 60), DOC_SUFFIXES[(kind, lang)]) if p]
     return "_".join(parts) + ".pdf"
 
 
 def classify_document(name: str) -> tuple[str, str | None] | None:
-    """('cv'|'letter', 'de'|'en'|None) for a generated document's file name, else None."""
+    """('cv'|'letter'|'motivation', 'de'|'en'|None) for a generated document's file name, else None."""
     if name in _LEGACY:
         return _LEGACY[name]
     if not _SAFE_NAME.match(name):
@@ -51,12 +56,19 @@ def classify_document(name: str) -> tuple[str, str | None] | None:
 
 
 def list_documents(job_id: int) -> list[Path]:
-    """The generated PDFs in output/<job_id>/, CV first."""
+    """The generated PDFs in output/<job_id>/: CV, letter, Motivationsschreiben."""
     d = output_dir(job_id)
     if not d.is_dir():
         return []
     docs = [p for p in d.iterdir() if p.is_file() and classify_document(p.name)]
-    return sorted(docs, key=lambda p: (classify_document(p.name)[0] != "cv", p.name))
+    order = {"cv": 0, "letter": 1, "motivation": 2}
+    return sorted(docs, key=lambda p: (order[classify_document(p.name)[0]], p.name))
+
+
+def find_motivation(job_id: int) -> Path | None:
+    """The Motivationsschreiben, if the user asked for one and it was written."""
+    found = [p for p in list_documents(job_id) if classify_document(p.name)[0] == "motivation"]
+    return max(found, key=lambda p: p.stat().st_mtime) if found else None
 READY_FROM = ("shortlisted", "needs_attention", "docs_ready")  # evaluated first; re-saving is allowed
 
 
@@ -76,7 +88,7 @@ def find_documents(job_id: int) -> tuple[Path | None, Path | None, str]:
     docs = list_documents(job_id)
     cvs = [p for p in docs if classify_document(p.name)[0] == "cv"]
     letters = [p for p in docs if classify_document(p.name)[0] == "letter"]
-    if not cvs and not letters:
+    if not docs:
         raise ValueError(f"no documents for job {job_id} in {d}; call render_documents first")
     newest = lambda ps: max(ps, key=lambda p: p.stat().st_mtime) if ps else None  # noqa: E731
     cv, letter = newest(cvs), newest(letters)
@@ -134,17 +146,20 @@ def save_application(conn: sqlite3.Connection, job_id: int, summary: str, interv
         if not value or not value.strip():
             raise ValueError(f"{name} must not be empty")
     cv, letter, lang = find_documents(job_id)
+    motivation = find_motivation(job_id)
     inferred = read_inferred(job_id)
 
     conn.execute(
-        """INSERT INTO applications (job_id, cv_path, letter_path, doc_language, summary, interview_prep, method,
-                                     inferred_facts, inferred_approved_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+        """INSERT INTO applications (job_id, cv_path, letter_path, motivation_path, doc_language, summary,
+                                     interview_prep, method, inferred_facts, inferred_approved_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
            ON CONFLICT(job_id) DO UPDATE SET cv_path = excluded.cv_path, letter_path = excluded.letter_path,
+             motivation_path = excluded.motivation_path,
              doc_language = excluded.doc_language, summary = excluded.summary,
              interview_prep = excluded.interview_prep, method = excluded.method,
              inferred_facts = excluded.inferred_facts, inferred_approved_at = NULL""",
-        (job_id, str(cv) if cv else None, str(letter) if letter else None, lang, summary, interview_prep, method,
+        (job_id, str(cv) if cv else None, str(letter) if letter else None, str(motivation) if motivation else None,
+         lang, summary, interview_prep, method,
          json.dumps(inferred, ensure_ascii=False)))
     conn.execute("UPDATE jobs SET docs_requested = NULL WHERE id = ?", (job_id,))  # request fulfilled
     notes = output_dir(job_id) / "notes.md"

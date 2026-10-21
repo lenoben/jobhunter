@@ -320,7 +320,8 @@ Telegram failures must never fail a run; log and continue.
 ## 12b. Additions 2026-10-16 (user requests)
 
 **Document file names.** PDFs are named `<Name>_<Job_title>_<Document>.pdf`:
-- the name comes from `personal.name` and the title from the job; gender tags are dropped,
+- the name is the first and last word of `personal.name` (since 2026-10-22, §12f) and the title
+  comes from the job; gender tags are dropped,
   umlauts transliterated, and the result is ASCII-safe for upload forms;
 - `<Document>` is `Lebenslauf` / `Anschreiben` (de) or `CV` / `Cover_Letter` (en).
 
@@ -477,6 +478,62 @@ outcome) as proof of one's own job search for the Agentur für Arbeit / Jobcente
 - The whole file as YAML.
 - Every save is checked by `cli.py check-profile` (core/profile.py) first; the previous file goes
   to `profile/backups/` (last 20).
+
+---
+
+## 12e. Additions 2026-10-21 (user requests)
+
+**Status `feedback`**, shown as "Feedback received" (`ui/src/lib/format.ts` `LABELS`): the employer
+replied after the application, but not with an interview. User-only, between `applied` and
+`interview` (`core/models.py`; no migration, statuses are plain text). Set it from the job page's
+status dropdown; the note field holds what they said.
+- Follow-up reminders only cover `applied`, so they stop. The Applications list, CSV and the
+  Nachweis include it ("Rückmeldung erhalten").
+- Statistics: a "Feedback received" tile, its own step in "Your pipeline", a small chart under
+  "Every status" and a "Right now" count. The pipeline now has 5 series: `--series-5` (magenta) is
+  slot 5 of the dataviz reference palette; in pipeline order (docs, applied, feedback, interview,
+  rejected = slots 1–5) it passes the palette validator in light and dark mode.
+
+**Mobile layout and the reverse tunnel:** see `ui/CLAUDE.md`.
+
+## 12f. Additions 2026-10-22 (user requests)
+
+**CV only by default.** Setting `default_documents` (migration 015): `cv` (default) or `both`.
+Runs write only the CV unless the user picks per job (`docs_requested` = cv | letter | both, which
+always wins). `core/jobs.documents_to_write` decides; `list_jobs(for_documents)` and `get_job`
+return it as `documents`, and `render_documents` refuses a letter the job doesn't ask for. The
+email draft then attaches the CV only (subject "Bewerbung als <title>"). In the UI the job page's
+document selector preselects the setting, and the list's "Write docs" button uses it.
+
+**A render replaces only what it writes** (user request 2026-10-22). "Cover letter only" after a CV
+adds the letter and keeps the CV (and its content and inferred facts in `content.json`); "CV only"
+keeps an existing letter; "CV + cover letter" writes both new. Only a render in the other language
+removes the old CV/letter, so a job never mixes a German CV with an English letter.
+
+**Motivationsschreiben** (migration 016 `applications.motivation_path`): a third document, written
+**only** when the user picks "Motivationsschreiben" on the job page (`docs_requested = motivation`).
+- `templates/{motivation_de,motivation_en}.typ` over `templates/lib/motivation.typ`; examples in
+  `templates/examples/motivation_*.json`. Letterhead, title, a subtitle naming role and company,
+  prose, place/date, typed name. 1–2 pages.
+- `docs.render_motivation` checks: schema, 4–9 paragraphs, no cliché opener, project links,
+  visa wording, inferred facts (R5/R9; they join the others in `content.json` for approval).
+- It replaces only an earlier Motivationsschreiben; CV and letter stay. A later CV/letter render
+  keeps it. `render_documents` refuses `motivation_content` unless the job asks for it.
+- File names `…_Motivationsschreiben.pdf` / `…_Motivation_Letter.pdf`; the email draft, apply kit,
+  Telegram and the job page list it.
+
+**File names: first and last name only.** `document_filename` uses the first and the last word of
+`personal.name` ("Max Peter Mustermann" → `Max_Mustermann_…`). Existing files keep their names
+until they are written again.
+
+**Where to apply: link, email and postal address together** (migration 016 `jobs.apply_address`).
+- `apply_target_from_text` returns the link *and* the email when the posting names both; adding a
+  job or its full posting fills in whichever is still empty. Postal addresses are entered by hand.
+- `manual.set_apply_places` (`cli.py apply-places JOB --text-file <json>`) saves all three; an
+  empty field clears that one. An email sets `apply_method = email` (email draft); clearing it falls
+  back to `portal` (link left) or `unknown`.
+- Job page: "Where to apply" shows each one found (Apply here ↗, email with copy, postal address
+  with copy) and an Edit form with the three fields.
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "sender": {
+    "name": "Max Mustermann",
+    "street": "Musterstraße 1",
+    "city": "68159 Mannheim",
+    "phone": "+49 170 0000000",
+    "email": "max.mustermann@example.com"
+  },
+  "subtitle": "Backend Engineer (Go) at Müller & Söhne Software GmbH",
+  "place": "Mannheim",
+  "body": [
+    "Software that makes supply chains reliable has interested me since university: my final project showed me how much a well-modelled data flow means to the people who work with it every day. I see exactly that impact in your logistics platform.",
+    "Why backend development? I am motivated by interfaces and data models that have to last for years. In my current role for a non-profit organisation I own the REST API and the database, and I see how good early decisions make later changes easier.",
+    "Why your company? You use Go and PostgreSQL, publish your architecture decisions openly and work in small, autonomous teams. That is the environment in which I want to learn to own a service from design to operation.",
+    "What I bring: experience with Docker Compose and GitHub Actions, care for tests, and the willingness to learn new tools quickly. Sharing knowledge clearly matters to me just as much, as I did as a student assistant in the database lab.",
+    "In the long run I want to settle in Mannheim and the region and work on systems that grow over years. I look forward to meeting you in person."
+  ],
+  "closing": "Kind regards",
+  "inferred": []
+}

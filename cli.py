@@ -72,11 +72,13 @@ def cmd_render_test(args: argparse.Namespace) -> int:
 
     ok = True
     for r in docs.render_test():
-        limits = r["cv_pages"] <= docs.MAX_PAGES["cv"] and r["letter_pages"] == docs.MAX_PAGES["letter"]
+        limits = r["cv_pages"] <= docs.MAX_PAGES["cv"] and r["letter_pages"] == docs.MAX_PAGES["letter"] \
+            and r["motivation_pages"] <= docs.MAX_PAGES["motivation"]
         ok &= limits
         print(f"[{r['doc_language']}] CV {r['cv_pages']} page(s) → {r['cv_path']}")
         print(f"     letter {r['letter_pages']} page(s) → {r['letter_path']}")
-    print("Page limits OK (CV ≤ 2, letter = 1)." if ok else "Page limits exceeded!")
+        print(f"     Motivationsschreiben {r['motivation_pages']} page(s) → {r['motivation_path']}")
+    print("Page limits OK (CV ≤ 2, letter = 1, Motivationsschreiben ≤ 2)." if ok else "Page limits exceeded!")
     return 0 if ok else 1
 
 
@@ -107,9 +109,10 @@ def cmd_mail_test(args: argparse.Namespace) -> int:
         return 0
     attachments, subject = [], "JobHunter test"
     if args.job:
-        from core.applications import find_documents
+        from core.applications import find_documents, find_motivation
         cv, letter, _lang = find_documents(args.job)  # raises a clear error if not rendered yet
-        attachments, subject = [p for p in (cv, letter) if p], f"JobHunter test – job {args.job} documents"
+        attachments = [p for p in (cv, letter, find_motivation(args.job)) if p]
+        subject = f"JobHunter test – job {args.job} documents"
     result = mail_drafts.create_draft(
         to=cfg.address,  # always your own address: a test never addresses an employer
         subject=subject,
@@ -255,6 +258,25 @@ def cmd_reevaluate(args: argparse.Namespace) -> int:
     conn = db.connect()
     try:
         result = reevaluate(conn, args.job)
+    except (ManualJobError, ValueError) as e:
+        result = {"error": str(e)}
+    finally:
+        conn.close()
+    print(json.dumps(result, ensure_ascii=False) if args.json else result)
+    return 1 if "error" in result else 0
+
+
+def cmd_apply_places(args: argparse.Namespace) -> int:
+    """Set link, email and postal address to apply at once (JSON {url, email, address} in a file)."""
+    import json
+    from pathlib import Path
+
+    from core.manual import ManualJobError, set_apply_places
+
+    conn = db.connect()
+    try:
+        data = json.loads(Path(args.text_file).read_text(encoding="utf-8") or "{}")
+        result = set_apply_places(conn, args.job, data.get("url"), data.get("email"), data.get("address"))
     except (ManualJobError, ValueError) as e:
         result = {"error": str(e)}
     finally:
@@ -457,6 +479,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("target", nargs="?", default="")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_apply_to)
+    p = sub.add_parser("apply-places", help="Set link, email and postal address to apply (JSON file)")
+    p.add_argument("job", type=int)
+    p.add_argument("--text-file", required=True, help="JSON {url, email, address}; empty values clear")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_apply_places)
     p = sub.add_parser("update-posting", help="Add/replace a job's full posting; it gets evaluated again")
     p.add_argument("job", type=int)
     p.add_argument("--text-file", required=True)

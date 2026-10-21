@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import {
-	approveInferred, DOC_CHOICES, flagWorkAuthorization, followupState, getApplication, getHistory, getJob, getSettings, markApplied, notInterested,
-	rejectInferred, requestDocuments, setStatus, toggleFavorite, USER_SETTABLE
+	approveInferred, defaultDocuments, DOC_CHOICES, flagWorkAuthorization, followupState, getApplication, getHistory, getJob, getSettings,
+	markApplied, notInterested, rejectInferred, requestDocuments, saveUserNotes, setStatus, toggleFavorite, USER_SETTABLE
 } from '$lib/server/db';
 import { listDocuments, markdown, notesHtml, runNow } from '$lib/server/files';
 import { buildKit } from '$lib/server/kit';
@@ -26,6 +26,7 @@ export function load({ params, url }) {
 		fitNotes: markdown(job.fit_notes),
 		statuses: USER_SETTABLE,
 		docChoices: DOC_CHOICES,
+		docDefault: defaultDocuments(),
 		kit: buildKit(job),
 		followup: followupState(id),
 		added: url.searchParams.get('added'),
@@ -64,7 +65,7 @@ export const actions = {
 	/** "Apply anyway" / "Write documents" (CV, cover letter or both). now=1 → "Generate now". */
 	docs: async ({ params, request }) => {
 		const f = await request.formData();
-		const result = run(() => requestDocuments(jobId(params), String(f.get('which') ?? 'both')));
+		const result = run(() => requestDocuments(jobId(params), String(f.get('which') ?? defaultDocuments())));
 		if ('status' in result) return result; // failure
 		return f.get('now') === '1' ? { ok: true, started: runNow('docs') } : { ok: true, requested: true };
 	},
@@ -78,6 +79,15 @@ export const actions = {
 		return { ok: true, postingSaved: r.status };
 	},
 	favorite: async ({ params }) => run(() => toggleFavorite(jobId(params))),
+	usernotes: async ({ params, request }) => {
+		const f = await request.formData();
+		try {
+			saveUserNotes(jobId(params), String(f.get('notes') ?? ''));
+		} catch (e) {
+			return fail(400, { error: (e as Error).message });
+		}
+		return { ok: true, notesSaved: true };
+	},
 	/** Score the job again from the posting text it has (cli reevaluate), then the single-job run. */
 	reevaluate: async ({ params }) => {
 		const id = jobId(params);
@@ -92,15 +102,14 @@ export const actions = {
 		};
 	},
 	/** Where to apply: a link (ATS form) or an email address; empty clears the link. */
+	/** Where to apply: link, email and postal address, each kept (core/manual.set_apply_places). */
 	applyto: async ({ params, request }) => {
 		const f = await request.formData();
-		const r = cli(['apply-to', String(jobId(params)), String(f.get('target') ?? '').trim()]);
+		const places = { url: String(f.get('url') ?? ''), email: String(f.get('email') ?? ''), address: String(f.get('address') ?? '') };
+		const r = cli(['apply-places', String(jobId(params))], JSON.stringify(places));
 		if (r.error) return fail(400, { error: r.error });
-		return {
-			ok: true,
-			applySaved: r.apply_email ? `Saved: apply by email to ${r.apply_email} (an email draft is prepared with the documents).`
-				: r.apply_url ? 'Saved: the apply kit opens this link.' : 'Link removed; the apply kit uses the posting link.'
-		};
+		const saved = [r.apply_url && 'link', r.apply_email && 'email (a draft is prepared with the documents)', r.apply_address && 'postal address'].filter(Boolean);
+		return { ok: true, applySaved: saved.length ? `Saved: ${saved.join(', ')}.` : 'Cleared; the apply kit uses the posting link.' };
 	},
 	/** A ready follow-up message for an application without a reply (core/followups.py). */
 	followuptext: async ({ params }) => {

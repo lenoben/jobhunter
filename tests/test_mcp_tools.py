@@ -140,6 +140,10 @@ def shortlisted(fake, monkeypatch):
     job_id = s.is_seen("https://jobs.example/1")["job_id"]
     s.evaluate_job(job_id, 85, "Good fit.", "hybrid", "full_time", "de", "email", "shortlist",
                    apply_email="jobs@acme.example")
+    c = db.connect()   # these tests write CV + letter; the default since 2026-10-22 is the CV only
+    c.execute("UPDATE settings SET value = 'both' WHERE key = 'default_documents'")
+    c.commit()
+    c.close()
     return job_id
 
 

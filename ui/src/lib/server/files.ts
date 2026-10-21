@@ -6,17 +6,21 @@ import { Marked } from 'marked';
 import { OUTPUT_DIR, ROOT } from './db';
 
 // The only files the UI ever serves (CLAUDE.md §12: only from output/<id>/): generated documents,
-// named <Name>_<Job_title>_<Lebenslauf|Anschreiben|CV|Cover_Letter>.pdf (core/applications.py),
+// named <First>_<Last>_<Job_title>_<Lebenslauf|Anschreiben|Motivationsschreiben|CV|Cover_Letter|
+// Motivation_Letter>.pdf (core/applications.py),
 // plus the legacy names from before 2026-10-16.
 const LEGACY: Record<string, string> = { 'cv.pdf': 'CV / Lebenslauf', 'anschreiben.pdf': 'Anschreiben', 'cover_letter.pdf': 'Cover letter' };
-const SUFFIXES: [string, string, 'cv' | 'letter'][] = [
+type DocKind = 'cv' | 'letter' | 'motivation';
+const SUFFIXES: [string, string, DocKind][] = [
 	['_Lebenslauf.pdf', 'Lebenslauf', 'cv'], ['_CV.pdf', 'CV', 'cv'],
-	['_Anschreiben.pdf', 'Anschreiben', 'letter'], ['_Cover_Letter.pdf', 'Cover letter', 'letter']
+	['_Anschreiben.pdf', 'Anschreiben', 'letter'], ['_Cover_Letter.pdf', 'Cover letter', 'letter'],
+	['_Motivationsschreiben.pdf', 'Motivationsschreiben', 'motivation'], ['_Motivation_Letter.pdf', 'Motivation letter', 'motivation']
 ];
+const ORDER: Record<DocKind, number> = { cv: 0, letter: 1, motivation: 2 };
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\.pdf$/;
 
 /** { label, kind } if `name` is a generated document's file name, else null. */
-export function classifyDocument(name: string): { label: string; kind: 'cv' | 'letter' } | null {
+export function classifyDocument(name: string): { label: string; kind: DocKind } | null {
 	if (name in LEGACY) return { label: LEGACY[name], kind: name === 'cv.pdf' ? 'cv' : 'letter' };
 	if (!SAFE_NAME.test(name)) return null;
 	const hit = SUFFIXES.find(([suffix]) => name.endsWith(suffix));
@@ -27,14 +31,14 @@ export function jobDir(jobId: number): string {
 	return join(OUTPUT_DIR, String(Math.trunc(jobId)));
 }
 
-/** The job's documents, CV first. */
+/** The job's documents: CV, letter, Motivationsschreiben. */
 export function listDocuments(jobId: number) {
 	const dir = jobDir(jobId);
 	if (!existsSync(dir)) return [];
 	return readdirSync(dir)
 		.map((name) => ({ name, info: classifyDocument(name) }))
 		.filter((d) => d.info)
-		.sort((a, b) => (a.info!.kind === b.info!.kind ? a.name.localeCompare(b.name) : a.info!.kind === 'cv' ? -1 : 1))
+		.sort((a, b) => ORDER[a.info!.kind] - ORDER[b.info!.kind] || a.name.localeCompare(b.name))
 		.map((d) => ({ name: d.name, label: d.info!.label, path: join(dir, d.name) }));
 }
 

@@ -61,6 +61,7 @@ Owned by the numbered SQL files in `core/migrations/` (applied by `core/db.py`);
 | `docs_ready` | Claude | CV + letter generated, ready for the user to apply |
 | `needs_attention` | Claude | Human needed: `needs_login`, `captcha`, `form_unclear`, `missing_profile_info`, `german_only_form`, `source_error`, `work_authorization`, `below_blue_card_threshold` (see §5a), `inferred_facts` (R5/R9, §7), `alert_review` (job-alert job matching no filter, §12c) |
 | `applied` | **user only** | User submitted |
+| `feedback` | **user only** | Shown as "Feedback received": the employer replied, but not with an interview. Set from the status dropdown; no more follow-up reminders (§12e) |
 | `interview`, `offer`, `rejected`, `withdrawn` | **user only** | Pipeline tracking |
 
 Every status change writes a row to `status_history`.
@@ -105,7 +106,8 @@ Workflow Claude follows on every scheduled run:
    (Jobs already flagged `needs_attention` by the §5a checks in `search_jobs` are not evaluated.)
 5. Take `list_jobs("shortlisted", for_documents=true)` up to `max_tailored_per_run`: jobs with
    `fit_score ≥ min_fit_for_documents` (setting, default **60**) or `docs_requested` by the user.
-   Write CV + letter content → `render_documents` → `save_application`.
+   Write the documents the job's `documents` field asks for (the CV only by default, setting
+   `default_documents`; the user can pick CV + letter per job) → `render_documents` → `save_application`.
    If `apply_method = email` and `apply_email` exists → `save_email_draft`.
    If something blocks (e.g. profile lacks a required item) → `flag_attention`.
 6. `finish_run` with counts.

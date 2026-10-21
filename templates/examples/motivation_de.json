@@ -1,0 +1,20 @@
+{
+  "sender": {
+    "name": "Max Mustermann",
+    "street": "Musterstraße 1",
+    "city": "68159 Mannheim",
+    "phone": "+49 170 0000000",
+    "email": "max.mustermann@example.com"
+  },
+  "subtitle": "Backend-Entwickler (m/w/d) bei der Müller & Söhne Software GmbH",
+  "place": "Mannheim",
+  "body": [
+    "Software, die Lieferketten verlässlich macht, hat mich schon im Studium gereizt: In meinem Abschlussprojekt habe ich erlebt, wie viel ein sauber modellierter Datenfluss für die Menschen bedeutet, die täglich damit arbeiten. Genau diese Wirkung sehe ich in Ihrer Logistikplattform.",
+    "Warum Backend-Entwicklung? Mich motiviert die Arbeit an Schnittstellen und Datenmodellen, die über Jahre tragen müssen. Bei meiner aktuellen Tätigkeit für eine gemeinnützige Organisation verantworte ich die REST-API und die Datenbank und merke, wie sehr gute Entscheidungen am Anfang spätere Änderungen erleichtern.",
+    "Warum Ihr Unternehmen? Sie setzen auf Go und PostgreSQL, veröffentlichen Ihre Architekturentscheidungen offen und arbeiten in kleinen, eigenverantwortlichen Teams. In einem solchen Umfeld möchte ich lernen, Verantwortung für einen Service vom Entwurf bis zum Betrieb zu übernehmen.",
+    "Was ich mitbringe: Erfahrung mit Docker Compose und GitHub Actions, einen sorgfältigen Umgang mit Tests und die Bereitschaft, mich schnell in neue Werkzeuge einzuarbeiten. Ebenso wichtig ist mir, Wissen verständlich weiterzugeben, wie ich es als studentische Hilfskraft im Datenbanklabor getan habe.",
+    "Langfristig möchte ich mich in Mannheim und der Region beruflich verwurzeln und an Systemen mitarbeiten, die über Jahre wachsen. Ich freue mich darauf, Sie in einem persönlichen Gespräch kennenzulernen."
+  ],
+  "closing": "Mit freundlichen Grüßen",
+  "inferred": []
+}

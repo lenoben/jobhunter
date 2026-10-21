@@ -91,14 +91,25 @@ def get_job(conn: sqlite3.Connection, job_id: int) -> dict:
     return job
 
 
-DOC_REQUESTS = ("both", "cv", "letter")
+DOC_REQUESTS = ("both", "cv", "letter", "motivation")  # motivation = Motivationsschreiben, on request only
+DEFAULT_DOCUMENTS = ("cv", "both")
+
+
+def documents_to_write(conn: sqlite3.Connection, docs_requested: str | None) -> str:
+    """What the writer stage writes for a job: the user's per-job choice, else the setting
+    default_documents ('cv' = CV only unless the user changed it)."""
+    if docs_requested in DOC_REQUESTS:
+        return docs_requested
+    default = get_settings(conn).get("default_documents", "cv")
+    return default if default in DEFAULT_DOCUMENTS else "cv"
 # Statuses from which the user can ask for documents ("Apply anyway" / "Write documents").
 REQUESTABLE_FROM = ("new", "skipped", "shortlisted", "needs_attention", "docs_ready")
 
 
 def list_jobs(conn: sqlite3.Connection, status: str, limit: int = 50, for_documents: bool = False) -> list[dict]:
     """for_documents (writer stage): shortlisted jobs with fit ≥ min_fit_for_documents, or that the
-    user asked documents for (docs_requested) — requested first, then by fit score."""
+    user asked documents for (docs_requested) — requested first, then by fit score. Each row has
+    `documents` (cv | letter | both | motivation): what to write (documents_to_write)."""
     if status not in JOB_STATUSES:
         raise ValueError(f"status must be one of {', '.join(JOB_STATUSES)}")
     if not 1 <= limit <= 500:
@@ -109,10 +120,13 @@ def list_jobs(conn: sqlite3.Connection, status: str, limit: int = 50, for_docume
         if status != "shortlisted":
             raise ValueError("for_documents only works with status 'shortlisted'")
         threshold = int(float(get_settings(conn).get("min_fit_for_documents", "60")))
-        return [dict(r) for r in conn.execute(
+        rows = [dict(r) for r in conn.execute(
             f"""SELECT {cols} FROM jobs
                 WHERE status = 'shortlisted' AND (docs_requested IS NOT NULL OR fit_score >= ?)
                 ORDER BY docs_requested IS NULL, fit_score DESC, first_seen_at LIMIT ?""", (threshold, limit))]
+        for r in rows:
+            r["documents"] = documents_to_write(conn, r["docs_requested"])
+        return rows
     order = ("fit_score DESC, first_seen_at" if status == "shortlisted"
              else "COALESCE(posted_at, first_seen_at) DESC, id DESC")
     return [dict(r) for r in conn.execute(
@@ -121,13 +135,13 @@ def list_jobs(conn: sqlite3.Connection, status: str, limit: int = 50, for_docume
 
 def request_documents(conn: sqlite3.Connection, job_id: int, which: str = "both", changed_by: str = "user") -> None:
     """"Apply anyway" / "Write documents": the writer stage tailors this job regardless of its fit
-    score. which = both | cv | letter."""
+    score. which = both | cv | letter | motivation (the Motivationsschreiben, only ever on request)."""
     _check_choice("which", which, DOC_REQUESTS)
     job = get_job(conn, job_id)
     if job["status"] not in REQUESTABLE_FROM:
         raise ValueError(f"job {job_id} has status {job['status']}; documents can't be requested for it")
     conn.execute("UPDATE jobs SET docs_requested = ?, updated_at = datetime('now') WHERE id = ?", (which, job_id))
-    label = {"both": "CV + cover letter", "cv": "CV", "letter": "cover letter"}[which]
+    label = {"both": "CV + cover letter", "cv": "CV", "letter": "cover letter", "motivation": "Motivationsschreiben"}[which]
     set_status(conn, job_id, "shortlisted", changed_by, note=f"documents requested: {label}")
     conn.commit()
 

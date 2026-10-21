@@ -195,7 +195,7 @@ _NOT_APPLY_EMAIL = re.compile(r"^(no-?reply|noreply|datenschutz|privacy|dsb|webm
 def apply_target_from_text(text: str | None, posting_url: str | None = None) -> dict:
     """Where to apply, as stated in the posting text (user request 2026-10-18): a link next to
     "bewerben / apply / application", or an email address next to "Bewerbung / Unterlagen / send …".
-    Returns {apply_url?} or {apply_email?} (a link wins), or {} if the text names neither."""
+    Returns {apply_url?, apply_email?}: both when the text names both (2026-10-22), {} if neither."""
     if not text:
         return {}
     posting = canonical_url(posting_url) if posting_url else None
@@ -209,14 +209,13 @@ def apply_target_from_text(text: str | None, posting_url: str | None = None) -> 
         score += 2 if _APPLY_STRONG.search(before) else (1 if _APPLY_WORDS.search(before + url) else 0)
         if score >= 2 and (best is None or score > best[0]):
             best = (score, url)
-    if best:
-        return {"apply_url": best[1]}
+    found = {"apply_url": best[1]} if best else {}
     for m in _EMAIL_IN_TEXT.finditer(text):
         email = m.group(1).rstrip(".")
         around = text[max(0, m.start() - 160):m.end() + 40]
         if not _NOT_APPLY_EMAIL.match(email) and _EMAIL_CONTEXT.search(around):
-            return {"apply_email": email}
-    return {}
+            return found | {"apply_email": email}
+    return found
 
 
 class _Links(HTMLParser):
@@ -322,6 +321,40 @@ def set_apply_target(conn: sqlite3.Connection, job_id: int, target: str | None) 
     return {"job_id": job_id, "apply_url": target}
 
 
+MAX_ADDRESS = 400
+
+
+def set_apply_places(conn: sqlite3.Connection, job_id: int, url: str | None, email: str | None,
+                     address: str | None) -> dict:
+    """Where to apply, all at once (user request 2026-10-22): a posting may name a link, an email
+    address and a postal address; each is kept. Empty clears that one. An email address sets
+    apply_method 'email' (the writer stage then saves an email draft); clearing it falls back to
+    'portal' when a link is left, else 'unknown'."""
+    job = jobs.get_job(conn, job_id)  # raises if unknown
+    url, email = (url or "").strip(), (email or "").strip()
+    address = "\n".join(line.strip() for line in (address or "").strip().splitlines() if line.strip())
+    if url and (not re.match(r"https?://\S+$", url) or len(url) > 2000):
+        raise ManualJobError("where to apply: the link must start with http:// or https://")
+    if email:
+        m = _EMAIL.match(email)
+        if not m:
+            raise ManualJobError(f"where to apply: {email!r} is not an email address")
+        email = m.group(1)
+    if len(address) > MAX_ADDRESS:
+        raise ManualJobError(f"where to apply: the postal address is longer than {MAX_ADDRESS} characters")
+    method = job["apply_method"]
+    if email:
+        method = "email"
+    elif method == "email":
+        method = "portal" if url else "unknown"
+    conn.execute("""UPDATE jobs SET apply_url = ?, apply_email = ?, apply_address = ?, apply_method = ?,
+                    updated_at = datetime('now') WHERE id = ?""",
+                 (url or None, email or None, address or None, method, job_id))
+    conn.commit()
+    return {"job_id": job_id, "apply_url": url or None, "apply_email": email or None,
+            "apply_address": address or None, "apply_method": method}
+
+
 def reevaluate(conn: sqlite3.Connection, job_id: int, changed_by: str = "user") -> dict:
     """Evaluate a job again with the posting text it already has (user request 2026-10-18): clears
     the fit score, notes and project ideas, then the single-job run scores it again.
@@ -353,7 +386,7 @@ def reevaluate(conn: sqlite3.Connection, job_id: int, changed_by: str = "user") 
     return {"job_id": job_id, "status": p.status, "note": note or "to be evaluated again"}
 
 
-CLOSED = ("applied", "interview", "offer", "rejected", "withdrawn")
+CLOSED = ("applied", "feedback", "interview", "offer", "rejected", "withdrawn")
 
 
 def add_manual_job(conn: sqlite3.Connection, url: str, text: str | None = None, title: str | None = None,
@@ -415,14 +448,16 @@ def _add_manual_job(conn: sqlite3.Connection, url: str, text: str | None, title:
 
 def _auto_apply_target(conn: sqlite3.Connection, job_id: int, text: str | None, posting_url: str,
                        page_link: str | None = None) -> dict:
-    """If the job has no apply link/email yet, take the page's "Apply" link or the one the posting
-    text names. Never overwrites what the user (or the evaluation) already set."""
+    """Fill in the apply link and/or email the job doesn't have yet: the page's "Apply" link, else the
+    link the posting text names, and the email address the text names. Never overwrites what the
+    user (or the evaluation) already set."""
     job = jobs.get_job(conn, job_id)
-    if job.get("apply_url") or job.get("apply_email"):
-        return {}
-    found = {"apply_url": page_link} if page_link else apply_target_from_text(text, posting_url)
-    if found:
-        set_apply_target(conn, job_id, found.get("apply_url") or found.get("apply_email"))
+    found = apply_target_from_text(text, posting_url)
+    if page_link:
+        found["apply_url"] = page_link
+    found = {k: v for k, v in found.items() if not job.get(k)}
+    for value in found.values():
+        set_apply_target(conn, job_id, value)
     return found
 
 

@@ -8,7 +8,7 @@
 	const job = $derived(data.job);
 	const app = $derived(data.application);
 	const pending = $derived(job.status === 'needs_attention' && job.attention_reason === 'inferred_facts');
-	const closed = $derived(['skipped', 'applied', 'interview', 'offer', 'rejected', 'withdrawn'].includes(job.status));
+	const closed = $derived(['skipped', 'applied', 'feedback', 'interview', 'offer', 'rejected', 'withdrawn'].includes(job.status));
 </script>
 
 <svelte:head><title>{job.title} · JobHunter</title></svelte:head>
@@ -72,6 +72,20 @@
 	</div>
 </div>
 
+<div class="card" id="my-notes">
+	<h2 style="margin-top: 0">My notes</h2>
+	{#if form?.notesSaved}<div class="flash">Notes saved.</div>{/if}
+	<form method="POST" action="?/usernotes" use:enhance={() => async ({ update }) => update({ reset: false })}>
+		<textarea name="notes" rows="6" class="user-notes" aria-label="My notes on this application"
+			placeholder={'e.g. 22.10. called Ms Weber (HR), interview likely in November\nContact: weber@company.de\nNext: send references'}
+			>{job.user_notes ?? ''}</textarea>
+		<div class="row" style="margin-top: 0.5rem">
+			<button class="secondary">Save notes</button>
+			<span class="muted small">{job.user_notes_at ? `Last saved ${localTime(job.user_notes_at)}` : 'Only for you; never used in the documents.'}</span>
+		</div>
+	</form>
+</div>
+
 {#if data.followup}
 	{@const f = data.followup}
 	<div class="card" id="followup" style={f.due || f.noResponse ? 'border-color: var(--warn)' : ''}>
@@ -109,6 +123,7 @@
 	</div>
 {/if}
 
+
 {#if pending && app?.inferred_facts?.length}
 	<div class="card" style="border-color: var(--warn)">
 		<h2 style="margin-top: 0">Inferred facts: your approval needed</h2>
@@ -131,7 +146,7 @@
 			</span>
 			<select name="which" aria-label="Which documents">
 				{#each Object.entries(data.docChoices) as [k, v]}
-					<option value={k} selected={(job.docs_requested ?? 'both') === k}>{v}</option>
+					<option value={k} selected={(job.docs_requested ?? data.docDefault) === k}>{v}</option>
 				{/each}
 			</select>
 			<button class="secondary" name="now" value="0">{job.status === 'skipped' ? 'Apply anyway' : 'Next run'}</button>
@@ -157,16 +172,35 @@
 		Salary: {job.salary_text ?? 'not stated'}
 		{#if job.salary_annual_eur}(≈ €{Math.round(job.salary_annual_eur).toLocaleString('de-DE')}/year){/if}
 		{#if job.salary_flag}· <span class="pill">{label(job.salary_flag)}</span>{/if}
-		· Apply via: {job.apply_method ?? '?'} {job.apply_email ?? ''}
+		· Apply via: {job.apply_method ?? '?'}
 		· Source: {job.source} · Posted: {job.posted_at ?? '?'} · First seen: {localTime(job.first_seen_at)}
 	</p>
 	{#if form?.applySaved}<div class="flash">{form.applySaved}</div>{/if}
-	<form method="POST" action="?/applyto" use:enhance class="row">
-		<label for="apply-to" class="small">Where to apply</label>
-		<input id="apply-to" type="text" name="target" class="grow" value={job.apply_url ?? ''}
-			placeholder={job.apply_email ? `by email: ${job.apply_email} — or paste the application form link` : 'Application form link or email address'} />
-		<button class="secondary">Save</button>
-	</form>
+	<h2>Where to apply</h2>
+	{#if job.apply_url || job.apply_email || job.apply_address}
+		<div class="places">
+			{#if job.apply_url}<div class="place"><span class="small muted">Online</span>
+				<a href={job.apply_url} target="_blank" rel="noopener noreferrer">Apply here ↗</a></div>{/if}
+			{#if job.apply_email}<div class="place"><span class="small muted">Email</span>
+				<span class="row" style="gap: 0.4rem"><a href="mailto:{job.apply_email}">{job.apply_email}</a><CopyButton text={job.apply_email} /></span></div>{/if}
+			{#if job.apply_address}<div class="place"><span class="small muted">By post</span>
+				<span class="row" style="gap: 0.4rem; align-items: flex-start"><span class="address">{job.apply_address}</span><CopyButton text={job.apply_address} /></span></div>{/if}
+		</div>
+	{:else}
+		<p class="small muted">Nothing found in the posting. Add what it names below (one, two or all three).</p>
+	{/if}
+	<details open={!(job.apply_url || job.apply_email || job.apply_address)}>
+		<summary class="small">Edit</summary>
+		<form method="POST" action="?/applyto" use:enhance class="apply-form">
+			<label class="small" for="apply-url">Application link</label>
+			<input id="apply-url" type="url" name="url" value={job.apply_url ?? ''} placeholder="https://…" />
+			<label class="small" for="apply-email">Email address</label>
+			<input id="apply-email" type="email" name="email" value={job.apply_email ?? ''} placeholder="jobs@company.de" />
+			<label class="small" for="apply-address">Postal address</label>
+			<textarea id="apply-address" name="address" rows="4" placeholder={'Company GmbH\nPersonalabteilung\nStraße 1\n12345 Stadt'}>{job.apply_address ?? ''}</textarea>
+			<div><button class="secondary">Save</button> <span class="small muted">An empty field removes that entry.</span></div>
+		</form>
+	</details>
 	{#if data.fitNotes}
 		<h2>Fit notes</h2>
 		<div class="prose">{@html data.fitNotes}</div>
@@ -281,3 +315,18 @@
 		</table>
 	</div>
 </div>
+
+<style>
+	.places { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-bottom: 0.6rem; }
+	.place { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+	.place a { overflow-wrap: anywhere; }
+	.address { white-space: pre-line; }
+	.user-notes { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
+	.apply-form { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem 0.7rem; align-items: center; margin-top: 0.5rem; }
+	.apply-form label[for='apply-address'] { align-self: start; padding-top: 0.3rem; }
+	.apply-form > div { grid-column: 2; }
+	@media (max-width: 700px) {
+		.apply-form { grid-template-columns: 1fr; }
+		.apply-form > div { grid-column: 1; }
+	}
+</style>

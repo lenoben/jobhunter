@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { cli } from '$lib/server/python';
 import {
-	favoriteCount, getSettings, listJobs, notInterested, PAGE_SIZES, requestDocuments, requestedCount, SORTS, SOURCES, STATUSES,
+	defaultDocuments, favoriteCount, getSettings, listJobs, notInterested, PAGE_SIZES, requestDocuments, requestedCount, SORTS, SOURCES, STATUSES,
 	statusCounts, toggleFavorite
 } from '$lib/server/db';
 import { runNow } from '$lib/server/files';
@@ -56,12 +56,12 @@ export const actions = {
 		}
 		return { skipped: j };
 	},
-	/** "Apply anyway" / "Write documents" from the list: CV + cover letter in the next run. */
+	/** "Apply anyway" / "Write documents" from the list: the default documents (setting) in the next run. */
 	docs: async ({ request }) => {
 		const j = id(await request.formData());
 		if (j === null) return fail(400, { error: 'bad id' });
 		try {
-			requestDocuments(j, 'both');
+			requestDocuments(j, defaultDocuments());
 		} catch (e) {
 			return fail(400, { error: (e as Error).message });
 		}

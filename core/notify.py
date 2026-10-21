@@ -81,7 +81,9 @@ def _e(s) -> str:
 EVENTS = ("notify_run_summary", "notify_docs_ready", "notify_evaluated", "notify_attention", "notify_failures")
 MAX_LIST_ITEMS = 10
 _DOC_LABELS = {("cv", "de"): "Lebenslauf", ("cv", "en"): "CV", ("cv", None): "CV",
-               ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover letter", ("letter", None): "Cover letter"}
+               ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover letter", ("letter", None): "Cover letter",
+               ("motivation", "de"): "Motivationsschreiben", ("motivation", "en"): "Motivation letter",
+               ("motivation", None): "Motivationsschreiben"}
 
 
 def enabled(conn: sqlite3.Connection | None, event: str) -> bool:

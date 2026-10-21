@@ -1,6 +1,6 @@
 ---
 name: job-hunt
-description: The JobHunter run — search the active filters, evaluate new jobs (filter stage), tailor CV + cover letter (write stage), and report via Telegram. Use when asked to run the job-hunt workflow (scheduled, manual or docs; stage filter, write or docs).
+description: The JobHunter run — search the active filters, evaluate new jobs (filter stage), tailor the CV and, if wanted, the cover letter (write stage), and report via Telegram. Use when asked to run the job-hunt workflow (scheduled, manual or docs; stage filter, write or docs).
 ---
 
 # Job-hunt run
@@ -117,19 +117,24 @@ Then call `finish_run(run_id)` and reply with one line: documents written, or wh
 1. Call `get_job`. Note `filter_name`, `language` and `docs_requested`. If `fit_score` is null
    (the user requested documents before the job was evaluated), first call `evaluate_job` as in A4
    (with `project_suggestions`): it only stores the score and notes, the status stays. `Read`
-   `templates/examples/cv_<lang>.json` and `letter_<lang>.json` once for the exact format.
-2. **Which documents:** `docs_requested` = `cv` → CV only, `letter` → cover letter only,
-   `both` or empty → both.
+   `templates/examples/cv_<lang>.json` (and `letter_<lang>.json` if you write a letter) once for
+   the exact format.
+2. **Which documents:** the job's `documents` field: `cv` → CV only (the default, setting
+   `default_documents`), `letter` → cover letter only, `both` → both, `motivation` → only a
+   **Motivationsschreiben** (rules below; the CV and letter stay as they are). Never write a
+   document it doesn't ask for; `render_documents` refuses it.
 3. Write the content (rules below) and call `render_documents`. If it returns an error, fix exactly
    what it names and call it again, at most 3 tries.
-4. Call `save_application(job_id, summary, interview_prep, method)`:
+4. Call `save_application(job_id, summary, interview_prep, method)` (for a `motivation` request,
+   pass the existing application's `interview_prep` and `method` unchanged and add one line about
+   the Motivationsschreiben to its `summary`):
    - `summary`: what you emphasised and why. If `profile.motivation[filter_name]` was missing or
      too thin, add the line `⚠️ Motivation for "<filter_name>" missing/thin in profile.yaml`.
    - `interview_prep`: Markdown with likely questions, technical topics to revise, and 3 questions
      to ask them.
    - `method`: e.g. "Portal: <url>" or "Email to <address>".
 5. If `apply_method` is `email` and the job has `apply_email`, call `save_email_draft`. The subject
-   is the letter subject. The body is 3–5 sentences in the posting language, saying which documents
+   is the letter subject, or without a letter "Bewerbung als <title>" / "Application for <title>". The body is 3–5 sentences in the posting language, saying which documents
    are attached. A refusal (e.g. inferred facts not approved yet) is fine: carry on.
 6. If something blocks (a hard requirement the profile lacks, or an unclear posting), call
    `flag_attention` with one sentence on what the user should do.
@@ -159,6 +164,15 @@ Then call `finish_run(run_id)` and reply with one line: documents written, or wh
   Staatsangehörigkeit) only if the profile sets them. There is no photo field.
 - **Grades in German:** "CGPA 3,45/4,00 (entspricht ca. <grade_de>, modifizierte bayerische
   Formel)", using `education[].grade_de`. Never compute it yourself.
+
+**Motivationsschreiben** (only for `documents = motivation`; `Read`
+`templates/examples/motivation_<lang>.json` for the format)
+- An extra document, not the Anschreiben: 1–2 pages ✔, 4–9 paragraphs ✔, no cliché opener ✔,
+  profile projects with their link ✔. `subtitle` = "<role> bei <company>" / "<role> at <company>".
+- It answers *why*: why this field, why this company (from the posting), what drives the user
+  (`profile.motivation[filter_name]`, never invented, R5), what they want to learn and where they
+  want to go. Skills only as evidence for the motivation, never a second CV.
+- Same facts, R9 and visa rules as the letter; list inferred statements under `inferred`.
 
 **Cover letter: style rules** (the tool checks those marked ✔)
 1. ✔ **No clichéd opener.** Not "mit großem Interesse habe ich Ihre Anzeige gelesen", not

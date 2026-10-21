@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 
 export const STATUSES = [
 	'new', 'skipped', 'shortlisted', 'docs_ready', 'needs_attention',
-	'applied', 'interview', 'offer', 'rejected', 'withdrawn'
+	'applied', 'feedback', 'interview', 'offer', 'rejected', 'withdrawn'
 ] as const;
 // needs_attention needs a reason, so only Claude sets it.
 export const USER_SETTABLE = STATUSES.filter((s) => s !== 'needs_attention');
@@ -94,13 +94,20 @@ export function listJobs(f: JobQuery) {
 	return { rows, total, page, pages, pageSize };
 }
 
-export const DOC_CHOICES = { both: 'CV + cover letter', cv: 'CV only', letter: 'Cover letter only' } as const;
+export const DOC_CHOICES = {
+	cv: 'CV only', both: 'CV + cover letter', letter: 'Cover letter only', motivation: 'Motivationsschreiben (extra, on request)'
+} as const;
+
+/** The setting default_documents: what runs write when the user didn't pick per job. Mirrors core/jobs. */
+export function defaultDocuments(): 'cv' | 'both' {
+	return getSettings().default_documents === 'both' ? 'both' : 'cv';
+}
 const REQUESTABLE = ['new', 'skipped', 'shortlisted', 'needs_attention', 'docs_ready'];
 
 /** "Apply anyway" / "Write documents": the next writer stage (or "Generate now") tailors this job
  *  regardless of its fit score. Mirrors core/jobs.request_documents. */
 export function requestDocuments(jobId: number, which: string) {
-	if (!(which in DOC_CHOICES)) throw new Error('choose CV, cover letter or both');
+	if (!(which in DOC_CHOICES)) throw new Error('choose CV, cover letter, both or Motivationsschreiben');
 	const d = getDb();
 	d.transaction(() => {
 		const job = d.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId) as any;
@@ -116,6 +123,16 @@ export function toggleFavorite(jobId: number): boolean {
 	const r = getDb().prepare('UPDATE jobs SET favorite = 1 - favorite WHERE id = ? RETURNING favorite').get(jobId) as any;
 	if (!r) throw new Error(`job ${jobId} not found`);
 	return !!r.favorite;
+}
+
+/** The user's own notes on the application process (migration 017). Empty text clears them. */
+export const MAX_USER_NOTES = 20_000;
+export function saveUserNotes(jobId: number, text: string) {
+	const notes = text.replace(/\r\n/g, '\n').trim();
+	if (notes.length > MAX_USER_NOTES) throw new Error(`notes are longer than ${MAX_USER_NOTES} characters`);
+	const r = getDb().prepare("UPDATE jobs SET user_notes = ?, user_notes_at = CASE WHEN ? IS NULL THEN NULL ELSE datetime('now') END WHERE id = ?")
+		.run(notes || null, notes || null, jobId);
+	if (!r.changes) throw new Error(`job ${jobId} not found`);
 }
 
 export function favoriteCount(): number {
@@ -349,6 +366,7 @@ export function stats(period: StatsPeriod) {
 		flagged: hist(`to_status = 'needs_attention' AND from_status IS NOT 'needs_attention'
 		               AND COALESCE(note, '') NOT LIKE 'alert_review%' AND COALESCE(note, '') NOT LIKE 'alert re-parsed%'`),
 		review: hist("to_status = 'needs_attention' AND (note LIKE 'alert_review%' OR note LIKE 'alert re-parsed%')"),
+		feedback: hist("to_status = 'feedback' AND from_status IS NOT 'feedback'"),
 		interview_only: hist("to_status = 'interview' AND from_status IS NOT 'interview'"),
 		offer: hist("to_status = 'offer' AND from_status IS NOT 'offer'"),
 		rejected_only: hist("to_status = 'rejected' AND from_status IS NOT 'rejected'"),
@@ -374,7 +392,7 @@ export function stats(period: StatsPeriod) {
 // The date the user applied: "Mark as applied", else the first status change to applied.
 const APPLIED_AT = `COALESCE(a.applied_at, (SELECT MIN(h.changed_at) FROM status_history h
                                            WHERE h.job_id = j.id AND h.to_status = 'applied'))`;
-export const APPLIED_STATUSES = ['applied', 'interview', 'offer', 'rejected', 'withdrawn'];
+export const APPLIED_STATUSES = ['applied', 'feedback', 'interview', 'offer', 'rejected', 'withdrawn'];
 
 /** Jobs the user applied to, newest first; `from`/`to` = local dates YYYY-MM-DD (inclusive). */
 export function applicationList(from?: string | null, to?: string | null, jobId?: number) {
@@ -454,6 +472,7 @@ export function listRuns(limit = 100) {
 export const SETTING_INFO: Record<string, { label: string; kind: 'int' | 'number' | 'bool' | 'text' | 'choice' | 'json'; options?: string[] }> = {
 	model_filter: { label: 'Model for searching, filtering and scoring', kind: 'choice', options: ['haiku', 'sonnet', 'opus'] },
 	model_writer: { label: 'Model for CVs and cover letters', kind: 'choice', options: ['sonnet', 'opus', 'haiku'] },
+	default_documents: { label: 'Documents to write unless you pick per job (cv = CV only, both = CV + cover letter)', kind: 'choice', options: ['cv', 'both'] },
 	min_fit_for_documents: { label: 'Write documents automatically from fit score', kind: 'int' },
 	max_tailored_per_run: { label: 'Max. jobs tailored per run', kind: 'int' },
 	max_evaluated_per_run: { label: 'Max. new jobs evaluated per run', kind: 'int' },

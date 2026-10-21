@@ -44,7 +44,54 @@ Everything at once: `uv run pytest -q`.
 **Changed:** in `tests/test_mcp_tools.py`, `test_evaluate_and_flag` now expects the new message
 "already scored", because scoring unscored jobs is allowed.
 
-## Added 2026-10-19 (not run yet)
+## Added 2026-10-22 (passed 2026-10-22: 198 tests)
+
+| Test | Checks |
+|---|---|
+| `test_default_is_cv_only_unless_the_user_picks` (`tests/test_phase7a.py`) | Runs write only the CV by default; a letter is refused; the user's per-job "CV + cover letter" wins; a bad setting falls back to CV only |
+| `test_file_names_use_first_and_last_name_only` (`tests/test_phase7a.py`) | "Max Peter Mustermann" → `Max_Mustermann_…`; Motivationsschreiben names are recognised |
+| `test_motivation_only_on_request_and_keeps_cv_and_letter` (`tests/test_phase7a.py`) | Motivationsschreiben refused unless requested; written alone; CV and letter stay; a later CV/letter render keeps it; its path is stored |
+| `test_text_naming_link_and_email_keeps_both` (`tests/test_apply_favorites_notify.py`) | A posting naming a link and an email keeps both |
+| `test_set_apply_places` (`tests/test_apply_favorites_notify.py`) | Link, email and postal address saved together; empty clears one; bad input refused |
+| `test_single_document_render_keeps_the_other` (`tests/test_phase7a.py`) | "Cover letter only" after a CV keeps the CV unchanged; both paths saved; a render in the other language replaces both |
+
+**Changed:** the `shortlisted` fixture in `tests/test_mcp_tools.py` sets `default_documents = both`,
+because those tests check the letter.
+
+Check by hand:
+
+18. **Settings → Documents to write…** shows `cv`; a job page's selector preselects "CV only"; the
+    next run writes only the Lebenslauf. Switch to `both` and the letter comes back.
+19. **Motivationsschreiben:** job page → Documents → "Motivationsschreiben (extra, on request)" →
+    Generate now. The PDF appears next to the CV/letter, which stay unchanged.
+20. **Where to apply:** fill link, email and postal address on a job page → three boxes with copy
+    buttons; empty one field and save → only that one disappears.
+21. **My notes:** type notes on a job page → Save notes → "Last saved …"; reload → still there;
+    edit and save again → updated; empty and save → cleared.
+
+## Added 2026-10-21 (passed 2026-10-21)
+
+```powershell
+uv run pytest -q tests/test_followups.py
+```
+
+| Test | Checks |
+|---|---|
+| `test_feedback_status_stops_reminders` (`tests/test_followups.py`) | A job in status `feedback` (employer replied, no interview) gets no follow-up reminder |
+
+Check by hand:
+
+15. **Feedback received** (job page of an applied job): pick it in the status dropdown (with a note) →
+    the Follow-up panel is gone, the job stays in Applications and shows "Rückmeldung erhalten" in the
+    CSV / Nachweis, and Statistics counts it.
+16. **Phone** (or DevTools at 390 px): Jobs page shows cards, a full-width search box and the sort bar;
+    the menu scrolls sideways; Runs / Needs you / Applications / Job boards show cards; no page
+    scrolls sideways.
+17. **Tunnel:** `UI_TUNNEL_HOSTS=.trycloudflare.com` in `.env`, `cd ui; npm run build; npm start`, then
+    `cloudflared tunnel --url http://127.0.0.1:5173`. The tunnel URL redirects to `/login`; a code from
+    Settings → Pair a device lets the phone in; saving a form works over the tunnel.
+
+## Added 2026-10-19 (passed 2026-10-21)
 
 ```powershell
 uv run pytest -q tests/test_followups.py

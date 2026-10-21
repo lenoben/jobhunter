@@ -149,7 +149,9 @@ def list_jobs(status: str, limit: int = 50, for_documents: bool = False,
     """Brief rows (no description) of jobs with one status, e.g. 'new' (to evaluate, newest posting
     first) or 'shortlisted' (highest fit_score first). for_documents=true (writer stage): only the
     shortlisted jobs that get documents — fit_score ≥ min_fit_for_documents, or docs_requested by
-    the user ('both' | 'cv' | 'letter': write exactly those), requested ones first.
+    the user, requested ones first. Each row's `documents` ('cv' | 'letter' | 'both' | 'motivation')
+    says which to write: the user's choice for that job, else the setting default_documents (CV only
+    by default). 'motivation' = only a Motivationsschreiben (motivation_content), never written unasked.
     requested_only=true (with for_documents, "docs" runs): only the jobs the user requested."""
     with _db() as conn:
         rows = jobs.list_jobs(conn, status, limit, for_documents)
@@ -165,11 +167,15 @@ def current_run() -> dict[str, Any]:
 
 @server.tool()
 def get_job(job_id: int) -> dict[str, Any]:
-    """The full job including description, fit notes, its application (if any) and status history."""
+    """The full job including description, fit notes, its application (if any) and status history.
+    `documents` (cv | letter | both | motivation) says which documents to write for it."""
     with _db() as conn:
         job = jobs.get_job(conn, job_id)
+        for k in ("user_notes", "user_notes_at"):  # the user's private notes (migration 017), not for runs
+            job.pop(k, None)
         f = next((x for x in load_filters(conn) if x.id == job["filter_id"]), None)
         job["filter_name"] = f.name if f else None  # key for profile.motivation (§7 rule 2)
+        job["documents"] = jobs.documents_to_write(conn, job["docs_requested"])  # cv | letter | both | motivation
         job["application"] = applications.get_application(conn, job_id)
         job["history"] = jobs.history(conn, job_id)
         return job
@@ -211,11 +217,16 @@ def evaluate_job(job_id: int, fit_score: int, fit_notes: str, work_mode: str, em
 
 @server.tool()
 def render_documents(job_id: int, doc_language: str, cv_content: dict[str, Any] | None = None,
-                     letter_content: dict[str, Any] | None = None) -> dict[str, Any]:
+                     letter_content: dict[str, Any] | None = None,
+                     motivation_content: dict[str, Any] | None = None) -> dict[str, Any]:
     """Render the CV and/or cover letter (Typst → PDF) into output/<job_id>/, named
     <Name>_<Job_title>_Lebenslauf|Anschreiben.pdf (de) or …_CV|Cover_Letter.pdf (en).
-    doc_language = the posting's language. Give both,
-    unless the job's docs_requested is 'cv' or 'letter' — then give exactly that one.
+    doc_language = the posting's language. Give exactly the documents the job's `documents` says
+    (list_jobs): its docs_requested, else the setting default_documents — CV only by default.
+    documents = 'motivation': give only motivation_content (a Motivationsschreiben, 1–2 pages, 4–9
+    paragraphs, no cliché opener, project links as in the letter). It leaves the CV and letter as they are.
+    motivation_content {sender{name,street,city,phone,email}, subtitle ("<role> bei <company>"),
+    salutation?, body[paragraphs], place, date?, closing?, inferred[]} (templates/examples/motivation_*.json).
     Letter rules checked here: no cliché opener, 4–5 body paragraphs, last paragraph states the
     start date / availability, every profile project named in the letter carries its URL.
     Schemas (see templates/examples/*.json): cv_content {name, headline, summary, contact{address,
@@ -232,16 +243,26 @@ def render_documents(job_id: int, doc_language: str, cv_content: dict[str, Any] 
 
     with _db() as conn:
         job = jobs.get_job(conn, job_id)
-        wanted = job.get("docs_requested")
+        wanted = jobs.documents_to_write(conn, job.get("docs_requested"))
         if wanted == "cv" and (letter_content or not cv_content):
-            raise ValueError("the user asked for the CV only: give cv_content and no letter_content")
+            raise ValueError("CV only for this job (docs_requested or the setting "
+                             "default_documents): give cv_content and no letter_content")
         if wanted == "letter" and (cv_content or not letter_content):
             raise ValueError("the user asked for the cover letter only: give letter_content and no cv_content")
+        if wanted == "motivation" and (cv_content or letter_content or not motivation_content):
+            raise ValueError("the user asked for a Motivationsschreiben only: give motivation_content and nothing else")
+        if wanted != "motivation" and motivation_content:
+            raise ValueError("a Motivationsschreiben is written only when the user asks for it (documents = 'motivation')")
         try:
             profile = load_profile()[0]
         except ProfileError as e:
             raise ToolError(str(e)) from None
         posting = "\n".join(filter(None, (job["title"], job["description"])))
+        if wanted == "motivation":
+            return docs.render_motivation(applications.output_dir(job_id), doc_language, motivation_content,
+                                          posting_text=posting, rejected=applications.rejected_inferences(conn),
+                                          projects=profile.get("projects") or [],
+                                          person=(profile.get("personal") or {}).get("name"), job_title=job["title"])
         return docs.render(job_id, doc_language, cv_content, letter_content, posting_text=posting,
                            photo=(profile.get("personal") or {}).get("photo"),
                            rejected=applications.rejected_inferences(conn), projects=profile.get("projects") or [],
@@ -273,7 +294,7 @@ def flag_attention(job_id: int, reason: str, detail: str) -> dict[str, Any]:
 @server.tool()
 def save_email_draft(job_id: int, subject: str, body: str) -> dict[str, Any]:
     """Save the application email as a DRAFT in the user's mailbox (to the job's apply_email, with
-    the CV and letter PDFs attached). Never sends (R1) — the user reviews and sends it."""
+    the CV and, if written, the letter and Motivationsschreiben attached). Never sends (R1) — the user reviews and sends it."""
     if not subject.strip() or not body.strip():
         raise ToolError("subject and body must not be empty")
     from core import mail_drafts
@@ -288,7 +309,7 @@ def save_email_draft(job_id: int, subject: str, body: str) -> dict[str, Any]:
         if app["inferred_facts"] and not app["inferred_approved_at"]:
             raise ValueError(f"job {job_id} has inferred facts the user hasn't approved yet (R5/R9); no draft")
         cv, letter, _lang = applications.find_documents(job_id)
-        files = [p for p in (cv, letter) if p]
+        files = [p for p in (cv, letter, applications.find_motivation(job_id)) if p]
         result = mail_drafts.create_draft(to=job["apply_email"], subject=subject.strip(), body=body,
                                           attachments=files)
         if not result["confirmed"]:

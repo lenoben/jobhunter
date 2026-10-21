@@ -10,7 +10,8 @@ import sqlite3
 from core import applications, jobs
 
 DOC_LABELS = {("cv", "de"): "Lebenslauf", ("cv", "en"): "CV", ("cv", None): "CV / Lebenslauf",
-              ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover letter"}
+              ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover letter",
+              ("motivation", "de"): "Motivationsschreiben", ("motivation", "en"): "Motivation letter"}
 
 PROMPT_INTRO = (
     "Fill in this application form using the data below. Upload the CV and cover letter if the "

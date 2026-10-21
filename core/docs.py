@@ -1,8 +1,10 @@
-"""Render CV + cover letter (Typst → PDF) into output/<job_id>/ (CLAUDE.md §7).
+"""Render CV + cover letter (Typst → PDF) into output/<job_id>/ (CLAUDE.md §7), and on request a
+Motivationsschreiben (core/CLAUDE.md §12f).
 
 Layout lives in templates/*.typ, content comes in as JSON (Claude only writes content). Checks
-here are deterministic: schema, page limits (CV ≤ 2, letter = 1), no visa talk unless the posting
-raises it, and every inferred fact (R5/R9) listed with its basis for the user to approve.
+here are deterministic: schema, page limits (CV ≤ 2, letter = 1, Motivationsschreiben ≤ 2), no visa
+talk unless the posting raises it, and every inferred fact (R5/R9) listed with its basis for the
+user to approve.
 """
 
 from __future__ import annotations
@@ -17,8 +19,8 @@ from core.db import ROOT
 
 TEMPLATES = ROOT / "templates"
 EXAMPLES = TEMPLATES / "examples"
-MAX_PAGES = {"cv": 2, "letter": 1}
-MIN_PAGES = {"cv": 1, "letter": 1}
+MAX_PAGES = {"cv": 2, "letter": 1, "motivation": 2}
+MIN_PAGES = {"cv": 1, "letter": 1, "motivation": 1}
 _MONTHS_EN = ("January", "February", "March", "April", "May", "June", "July", "August",
               "September", "October", "November", "December")
 
@@ -36,6 +38,10 @@ CV_SCHEMA = {
 LETTER_SCHEMA = {
     "sender": dict, "recipient": dict, "place": str, "date": str, "subject": str, "reference": str,
     "salutation": str, "body": list, "closing": str, "attachments": list, "inferred": list,
+}
+MOTIVATION_SCHEMA = {
+    "sender": dict, "title": str, "subtitle": str, "salutation": str, "body": list, "place": str, "date": str,
+    "closing": str, "inferred": list,
 }
 
 
@@ -80,11 +86,17 @@ def validate_letter(c: dict) -> None:
         raise DocumentError("subject must not start with 'Betreff:'/'Subject:' (DIN 5008)")
 
 
-def inferred_facts(*contents: dict) -> list[dict]:
+def validate_motivation(c: dict) -> None:
+    _check_types("motivation", c, MOTIVATION_SCHEMA, ("sender", "subtitle", "body"))
+    if not all(isinstance(p, str) and p.strip() for p in c["body"]):
+        raise DocumentError("motivation_content.body must be a list of non-empty paragraphs")
+
+
+def inferred_facts(*contents: dict, kinds: tuple[str, ...] = ("cv", "letter")) -> list[dict]:
     """R5/R9: every statement not literally backed by profile.yaml, with where it is and why it is
     implied. These need the user's approval before the documents are used."""
     out = []
-    for kind, c in zip(("cv", "letter"), contents):
+    for kind, c in zip(kinds, contents):
         for i, f in enumerate(c.get("inferred") or []):
             if not isinstance(f, dict) or not (f.get("text") or "").strip() or not (f.get("basis") or "").strip():
                 raise DocumentError(f"{kind}_content.inferred[{i}] needs 'text' and 'basis' (and ideally 'where')")
@@ -216,16 +228,22 @@ def _project_names(p: dict) -> list[str]:
     return [n for n in names if len(n) >= 5]
 
 
-def check_letter_style(letter: dict, projects: list[dict] | None = None) -> None:
+MOTIVATION_PARAGRAPHS = (4, 9)
+
+
+def check_letter_style(letter: dict, projects: list[dict] | None = None, kind: str = "letter") -> None:
+    """§7 rules for the cover letter; kind='motivation' (Motivationsschreiben) checks the same opener
+    and project links, allows 4–9 paragraphs and doesn't require the start date at the end."""
     body = letter.get("body") or []
-    lo, hi = BODY_PARAGRAPHS
+    lo, hi = MOTIVATION_PARAGRAPHS if kind == "motivation" else BODY_PARAGRAPHS
+    name = "Motivationsschreiben" if kind == "motivation" else "letter"
     if not lo <= len(body) <= hi:
-        raise DocumentError(f"the letter has {len(body)} body paragraphs; write {lo}–{hi} short ones (§7 rule 7)")
+        raise DocumentError(f"the {name} has {len(body)} body paragraphs; write {lo}–{hi} (§7 rule 7)")
     opening = " ".join([letter.get("salutation") or "", body[0]])
     if m := CLICHE_RE.search(opening):
-        raise DocumentError(f"the letter opens with the cliché {m.group(0)!r}; start with a motivation tied to "
+        raise DocumentError(f"the {name} opens with the cliché {m.group(0)!r}; start with a motivation tied to "
                             "this role and company (§7 rule 1)")
-    if not AVAILABILITY_RE.search(body[-1]):
+    if kind != "motivation" and not AVAILABILITY_RE.search(body[-1]):
         raise DocumentError("the last paragraph must state availability / the start date from the profile "
                             "(e.g. 'ab 01.02.2027' or 'ab sofort') (§7 rule 8)")
     text = " ".join(body).casefold()
@@ -236,7 +254,7 @@ def check_letter_style(letter: dict, projects: list[dict] | None = None) -> None
             continue
         if any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", text) for n in _project_names(p)) \
                 and _url_key(url) not in text_keys:
-            raise DocumentError(f"the letter mentions the project {p.get('name')!r} without its link {url} "
+            raise DocumentError(f"the {name} mentions the project {p.get('name')!r} without its link {url} "
                                 "(§7 rule 9)")
 
 
@@ -291,22 +309,78 @@ def render_pair(out_dir: Path, doc_language: str, cv_content: dict | None, lette
     out_dir.mkdir(parents=True, exist_ok=True)
     person = person or (cv_content or {}).get("name") or ((letter_content or {}).get("sender") or {}).get("name") or ""
     paths = {k: out_dir / document_filename(person, job_title or "", k, doc_language) for k in ("cv", "letter")}
-    # The folder holds exactly this render: drop documents from an earlier render (other language,
-    # other title, legacy names, or a document not requested this time).
+    # Replace only what this render writes (earlier versions: other title, legacy names). The other
+    # document stays, so "cover letter only" after a CV adds the letter (user request 2026-10-22),
+    # unless it is in the other language. A Motivationsschreiben is written on its own request and stays.
     keep = {paths[k] for k in rendered}
     for old in out_dir.iterdir():
-        if old.is_file() and classify_document(old.name) and old not in keep:
+        kind = classify_document(old.name) if old.is_file() else None
+        if not kind or kind[0] == "motivation" or old in keep:
+            continue
+        if kind[0] in rendered or (kind[1] or doc_language) != doc_language:
             old.unlink()
     for kind, (pdf, _pages) in rendered.items():
         paths[kind].write_bytes(pdf)
-    (out_dir / "content.json").write_text(json.dumps(
-        {"doc_language": doc_language, "cv": cv_content, "letter": data.get("letter"), "inferred": inferred},
-        ensure_ascii=False, indent=2), encoding="utf-8")
+    previous = _read_content(out_dir)
+    if previous.get("doc_language", doc_language) != doc_language:
+        previous = {"motivation": previous.get("motivation"),
+                    "inferred": [f for f in previous.get("inferred") or [] if f.get("document") == "motivation"]}
+    kept = {"motivation"} | {k for k in ("cv", "letter") if k not in rendered}
+    _write_content(out_dir, {"doc_language": doc_language,
+                             "cv": cv_content if "cv" in rendered else previous.get("cv"),
+                             "letter": data.get("letter") if "letter" in rendered else previous.get("letter"),
+                             "motivation": previous.get("motivation"),
+                             "inferred": inferred + [f for f in previous.get("inferred") or []
+                                                     if f.get("document") in kept]})
     return {"doc_language": doc_language, "inferred": inferred,
             "cv_path": str(paths["cv"]) if "cv" in rendered else None,
             "letter_path": str(paths["letter"]) if "letter" in rendered else None,
             "cv_pages": rendered["cv"][1] if "cv" in rendered else None,
             "letter_pages": rendered["letter"][1] if "letter" in rendered else None}
+
+
+def _read_content(out_dir: Path) -> dict:
+    path = out_dir / "content.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _write_content(out_dir: Path, content: dict) -> None:
+    (out_dir / "content.json").write_text(json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def render_motivation(out_dir: Path, doc_language: str, content: dict, posting_text: str | None = None,
+                      rejected: list[dict] | None = None, projects: list[dict] | None = None,
+                      person: str | None = None, job_title: str | None = None) -> dict:
+    """Render a Motivationsschreiben (only when the user asked for it). It replaces an earlier one and
+    leaves the CV and letter alone; its inferred facts join theirs in content.json."""
+    if doc_language not in LETTER_FILES:
+        raise DocumentError("doc_language must be 'de' or 'en'")
+    validate_motivation(content)
+    check_letter_style(content, projects, kind="motivation")
+    inferred = inferred_facts(content, kinds=("motivation",))
+    check_inferred_rules(inferred, (content,), rejected or [])
+    if not (posting_text and VISA_RE.search(posting_text)) and (hits := visa_mentions(content)):
+        raise DocumentError(f"the Motivationsschreiben mentions {hits}, but the posting doesn't ask about "
+                            "visa/work authorization (§7: no visa talk in the first application)")
+    data = dict(content)
+    data.setdefault("date", format_date(date.today(), doc_language))
+    pdf, pages = compile_pdf(f"motivation_{doc_language}", data)
+    if not MIN_PAGES["motivation"] <= pages <= MAX_PAGES["motivation"]:
+        raise DocumentError(f"motivation has {pages} pages (allowed: {MAX_PAGES['motivation']}); shorten the content")
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    person = person or (content.get("sender") or {}).get("name") or ""
+    path = out_dir / document_filename(person, job_title or "", "motivation", doc_language)
+    for old in out_dir.iterdir():
+        kind = classify_document(old.name) if old.is_file() else None
+        if kind and kind[0] == "motivation" and old != path:
+            old.unlink()
+    path.write_bytes(pdf)
+    previous = _read_content(out_dir)
+    _write_content(out_dir, previous | {
+        "doc_language": previous.get("doc_language") or doc_language, "motivation": data,
+        "inferred": [f for f in previous.get("inferred") or [] if f.get("document") != "motivation"] + inferred})
+    return {"doc_language": doc_language, "inferred": inferred, "motivation_path": str(path), "motivation_pages": pages}
 
 
 def render(job_id: int, doc_language: str, cv_content: dict | None, letter_content: dict | None,
@@ -325,4 +399,6 @@ def render_test() -> list[dict]:
         letter = json.loads((EXAMPLES / f"letter_{lang}.json").read_text(encoding="utf-8"))
         title = "Backend-Entwickler (m/w/d)" if lang == "de" else "Backend Engineer (Go)"
         results.append(render_pair(output_root() / "_render-test" / lang, lang, cv, letter, job_title=title))
+        motivation = json.loads((EXAMPLES / f"motivation_{lang}.json").read_text(encoding="utf-8"))
+        results[-1] |= render_motivation(output_root() / "_render-test" / lang, lang, motivation, job_title=title)
     return results

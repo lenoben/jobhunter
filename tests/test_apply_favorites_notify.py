@@ -172,3 +172,32 @@ def test_notification_toggles(conn, sent):
     conn.execute("UPDATE settings SET value = '1' WHERE key = 'notify_failures'")
     assert notify.notify_run_refused(conn, "docs", "run 3 is still running") == "sent"
     assert sent[-1]["text"] == "⏸ Generate now couldn't start: run 3 is still running"
+
+
+# ── where to apply: link, email and postal address together (2026-10-22) ────
+
+def test_text_naming_link_and_email_keeps_both(conn):
+    text = POSTING + ("Bewerben Sie sich online: https://acme.softgarden.io/job/9/apply\n"
+                      "oder senden Sie Ihre Bewerbungsunterlagen an karriere@acme.example.")
+    assert manual.apply_target_from_text(text, "https://x.example/posting") == {
+        "apply_url": "https://acme.softgarden.io/job/9/apply", "apply_email": "karriere@acme.example"}
+    r = manual.add_manual_job(conn, "https://example.org/jobs/9", text)
+    job = jobs.get_job(conn, r["job_id"])
+    assert (job["apply_url"], job["apply_email"], job["apply_method"]) == (
+        "https://acme.softgarden.io/job/9/apply", "karriere@acme.example", "email")
+
+
+def test_set_apply_places(conn):
+    jid = _job(conn, 1)
+    r = manual.set_apply_places(conn, jid, "https://acme.example/apply", "mailto:hr@acme.example",
+                                "ACME GmbH\n  Personalabteilung \n\nHauptstr. 1\n68159 Mannheim")
+    job = jobs.get_job(conn, jid)
+    assert (job["apply_url"], job["apply_email"], job["apply_method"]) == ("https://acme.example/apply", "hr@acme.example", "email")
+    assert job["apply_address"] == "ACME GmbH\nPersonalabteilung\nHauptstr. 1\n68159 Mannheim" == r["apply_address"]
+    manual.set_apply_places(conn, jid, "https://acme.example/apply", "", "")   # email and address cleared
+    job = jobs.get_job(conn, jid)
+    assert (job["apply_email"], job["apply_address"], job["apply_method"]) == (None, None, "portal")
+    with pytest.raises(manual.ManualJobError, match="not an email address"):
+        manual.set_apply_places(conn, jid, "", "call Mrs X", "")
+    with pytest.raises(manual.ManualJobError, match="http"):
+        manual.set_apply_places(conn, jid, "acme.example", "", "")
