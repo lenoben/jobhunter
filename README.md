@@ -6,6 +6,8 @@ every new posting against your profile, writes a tailored **Lebenslauf + Anschre
 (DIN 5008) or **CV + cover letter**, and reports to Telegram. A local web UI is where you
 review, adjust and apply. **It never submits an application — you always do.**
 
+![The Jobs page: every found posting with its fit score, status and quick actions](docs/jobhunter.jpeg)
+
 ## What it does
 
 - **Finds jobs:**
@@ -210,6 +212,14 @@ npm start            # http://localhost:5173 (local only)
 - **Filters:** create, edit, switch on/off and delete.
 - **Runs:** the run history.
 - **Settings:** limits, Telegram on/off, Blue Card threshold, and **Run now**.
+
+<p>
+  <img src="docs/jobhunter_3.jpeg" width="49%" alt="A job page: status, documents to download or write again, where to apply, fit notes and the Apply kit">
+  <img src="docs/jobhunter_2.jpeg" width="49%" alt="Statistics: found, scored, documents, applied and interviews over 30 days, the pipeline per day, and one chart per status">
+</p>
+
+*Left: a job page with its fit notes, documents and Apply kit. Right: Statistics, your pipeline
+per day and one chart per status.*
 
 **Apply kit** (on each job with documents) has:
 - the application link and the PDF paths to upload;
