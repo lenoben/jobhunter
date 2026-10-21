@@ -19,7 +19,7 @@ from core.mail_config import MailConfig, load_send_config
 
 # e.g. (\HasNoChildren \Drafts) "/" "Draft"
 _LIST_RE = re.compile(r'\((?P<flags>[^)]*)\)\s+(?P<delim>"[^"]*"|NIL)\s+(?P<name>.+)')
-FALLBACK_DRAFT_NAMES = ("Draft", "Drafts")
+FALLBACK_DRAFT_NAMES = ("Draft", "Drafts", "Entw&APw-rfe")  # last: "Entwürfe" (GMX, web.de, T-Online)
 
 
 @dataclass
@@ -64,7 +64,7 @@ def list_folders(conn: imaplib.IMAP4_SSL) -> list[Folder]:
 
 def find_drafts_folder(folders: list[Folder]) -> tuple[str, str]:
     """Return (folder name, how it was found). Prefers the RFC 6154 \\Drafts special-use flag,
-    falls back to a folder literally named Draft or Drafts."""
+    falls back to a folder literally named Draft, Drafts or Entwürfe."""
     for f in folders:
         if any(flag.lower() == "\\drafts" for flag in f.flags):
             return f.name, "\\Drafts flag"
@@ -73,7 +73,7 @@ def find_drafts_folder(folders: list[Folder]) -> tuple[str, str]:
         if candidate.lower() in by_name:
             return by_name[candidate.lower()], "name fallback"
     raise RuntimeError("No Drafts folder: none has the \\Drafts flag and none is named "
-                       + " or ".join(FALLBACK_DRAFT_NAMES))
+                       "Draft, Drafts or Entwürfe")
 
 
 def build_message(sender: str, to: str, subject: str, body: str,

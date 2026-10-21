@@ -247,12 +247,14 @@
 		<textarea readonly rows="8" class="small" style="font-family: ui-monospace, Consolas, monospace">{kit.prompt}</textarea>
 		<div class="row" style="margin-top: 0.4rem"><CopyButton text={kit.prompt} label="Copy prompt" /></div>
 
+		{#if data.workPermitChecks}
 		<h3 class="kit-h">The form demands unrestricted work authorization?</h3>
 		<form method="POST" action="?/workauth" use:enhance class="row">
 			<input type="text" name="note" placeholder='Exact wording, e.g. "uneingeschränkte Arbeitserlaubnis"' class="grow" />
 			<button class="danger">Flag: work authorization</button>
 		</form>
 		<p class="small muted" style="margin-bottom: 0">Leave those questions empty; the job moves to <em>Needs you</em> so you can decide.</p>
+		{/if}
 	</div>
 {/if}
 

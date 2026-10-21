@@ -372,7 +372,7 @@ def reevaluate(conn: sqlite3.Connection, job_id: int, changed_by: str = "user") 
     # The §5a checks run again, so a salary/work-authorization flag isn't lost by re-evaluating.
     p = JobPosting(source=job["source"], url=job["url"], title=job["title"], company=job["company"],
                    location=job["location"], description=job["description"], salary_text=job["salary_text"])
-    note = _screen(p, float(get_settings(conn).get("blue_card_salary_min", "45934.20")))
+    note = _screen(p, get_settings(conn))
     resolved = conn.execute("SELECT 1 FROM status_history WHERE job_id = ? AND from_status = 'needs_attention' "
                             "AND changed_by = 'user'", (job_id,)).fetchone()
     if resolved and p.status == "needs_attention":  # the user already dealt with that flag
@@ -438,8 +438,7 @@ def _add_manual_job(conn: sqlite3.Connection, url: str, text: str | None, title:
     if dup:
         return {"job_id": dup["id"], "created": False, "status": dup["status"], "note": "already known (same job)"}
     p.filter_id = _filter_for(conn, p.title)
-    threshold = float(get_settings(conn).get("blue_card_salary_min", "45934.20"))
-    note = _screen(p, threshold)
+    note = _screen(p, get_settings(conn))
     p.id = jobs.insert_job(conn, p, note=("added manually" + (f"; {note}" if note else "")))
     conn.commit()
     _auto_apply_target(conn, p.id, text, p.url, fetched.get("apply_url"))
@@ -473,8 +472,7 @@ def update_posting(conn: sqlite3.Connection, job_id: int, text: str, changed_by:
     p = JobPosting(source=job["source"], url=job["url"], title=job["title"], company=job["company"],
                    location=job["location"], description=text,
                    salary_text=job["salary_text"] or _salary_from_text(text))
-    threshold = float(get_settings(conn).get("blue_card_salary_min", "45934.20"))
-    note = _screen(p, threshold)
+    note = _screen(p, get_settings(conn))
     conn.execute(
         """UPDATE jobs SET description = ?, salary_text = ?, salary_annual_eur = ?, salary_flag = ?,
                   fit_score = NULL, fit_notes = NULL, project_suggestions = NULL, updated_at = datetime('now')

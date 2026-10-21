@@ -56,6 +56,8 @@ inserted job during search (after `fetch_details`, so the full ad text is availa
     continues normally and Claude mentions it in `fit_notes`.
 - The threshold is an editable setting, never hardcoded: `blue_card_salary_min = 45934.20` and
   `blue_card_salary_year = 2026`. Update both each January (UI `/settings`).
+- Both checks only run with `work_permit_checks = 1` (default; core §16). With `0` (EU
+  citizens) the salary is still parsed, but nothing is flagged.
 
 **Work authorization**
 - Scan the ad text (title + description) case-insensitively for demands the user must answer
@@ -549,3 +551,54 @@ For the BA source, map `full_time` to `arbeitszeit=vz` (plus `ho` when remote is
 treats the `arbeitszeit` list as OR, so `ho` is only added when remote is wanted and on-site is
 not; otherwise it would only widen the results.
 All filters stay editable in the UI (`/filters`).
+
+---
+
+## 16. Shareable setup (2026-10-25, user request)
+
+The project owner's own setup (Germany, Yahoo for drafts and alerts, Claude Code) stays the
+default, but nothing user-specific is assumed any more. Migration 018 adds the settings below.
+
+**`cli.py setup`** (`core/setup.py`): a guided, re-runnable wizard. It checks the tools, creates
+`.env` and `profile/profile.yaml` from the examples, then asks: AI provider and models, drafts
+mailbox, job-alert mailbox (the drafts one, another one, or none), Telegram, work permit, and the
+first search filters (the IT starter set, or the user's own `Name: title, title` lines). Secrets
+go to `.env` (hidden input, never printed); everything else goes to `settings`. Enter keeps the
+current value.
+
+**Work permit** (`work_permit_checks`, default `1`): `search._screen` runs the §5a checks only
+when it is on. The MCP tool `check_work_authorization` returns no match when it is off, and the
+job page hides "Flag: work authorization". Visa questions on forms are still left to the user.
+
+**Mail** (`core/mail_config.py`): `PROVIDERS` holds the presets (yahoo, gmail, gmx, webde,
+t-online, icloud). Outlook.com is left out because it no longer accepts app passwords over IMAP.
+Host order: `<ROLE>_IMAP_HOST`, then `<ROLE>_MAIL_PROVIDER`, then the address domain
+(`guess_host`), then Yahoo for SEND (an error for ALERTS). Both accounts are optional
+(`configured()`): without SEND, `save_email_draft` returns `saved_to: null` with a note instead of
+failing; with no account at all, `email_alerts` finds nothing. The Drafts fallback names include
+`Entwürfe` (GMX, web.de, T-Online).
+
+**Other LLM providers** (`core/agent.py`):
+- `.env`: `LLM_PROVIDER` (`claude-code` default | groq | openai | openrouter | mistral | ollama |
+  custom), `LLM_API_KEY`, and `LLM_BASE_URL` (custom, or to override a preset).
+- Settings `llm_model_filter` / `llm_model_writer` hold the model ids. Setup lists them from the
+  provider's `GET /models`; they are never hard-coded because they change too often.
+  `model_filter` / `model_writer` stay the Claude Code models.
+- `cli.py agent --trigger T --stage S [--job N]` runs one stage. It connects to the jobhunter MCP
+  server as an MCP client (same tools, same guards) and uses the job-hunt `SKILL.md` as the system
+  prompt.
+- It calls `/chat/completions` with tools in a loop, up to 200 turns. On 429/5xx it waits
+  (`Retry-After`) and retries.
+- `read_file` replaces Claude's `Read` and only opens `templates/` and `.claude/skills/`.
+- Tool results are capped at 30k characters, and the oldest ones are blanked once the
+  conversation passes `LLM_CONTEXT_CHARS` (default 120k).
+- The log gets tool names and sizes only, never tool output (R4).
+- `run.ps1` / `run.sh` ask `cli.py llm-provider` and pick `claude -p` or the agent per stage;
+  everything else (check-run, notify-failure) is unchanged.
+- Limits: apply assist still needs Claude in Chrome. Open models invent facts more easily; the
+  code checks (R8, R9, docs.py, drafts only) still apply, and the README warns the user to read
+  every document.
+
+**Seed filters:** `seed_default_filters(conn, groups)` takes the user's own groups;
+`DEFAULT_FILTERS` is now the "IT starter set".
+

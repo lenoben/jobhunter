@@ -31,7 +31,8 @@ export function load({ params, url }) {
 		followup: followupState(id),
 		added: url.searchParams.get('added'),
 		evaluating: url.searchParams.get('evaluating') === '1',
-		docThreshold: Number(getSettings().min_fit_for_documents ?? 60)
+		docThreshold: Number(getSettings().min_fit_for_documents ?? 60),
+		workPermitChecks: (getSettings().work_permit_checks ?? '1') === '1'
 	};
 }
 

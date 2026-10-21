@@ -470,8 +470,10 @@ export function listRuns(limit = 100) {
 }
 
 export const SETTING_INFO: Record<string, { label: string; kind: 'int' | 'number' | 'bool' | 'text' | 'choice' | 'json'; options?: string[] }> = {
-	model_filter: { label: 'Model for searching, filtering and scoring', kind: 'choice', options: ['haiku', 'sonnet', 'opus'] },
-	model_writer: { label: 'Model for CVs and cover letters', kind: 'choice', options: ['sonnet', 'opus', 'haiku'] },
+	model_filter: { label: 'Claude Code: model for searching, filtering and scoring', kind: 'choice', options: ['haiku', 'sonnet', 'opus'] },
+	model_writer: { label: 'Claude Code: model for CVs and cover letters', kind: 'choice', options: ['sonnet', 'opus', 'haiku'] },
+	llm_model_filter: { label: 'Other LLM provider (LLM_PROVIDER in .env): model id for searching and scoring', kind: 'text' },
+	llm_model_writer: { label: 'Other LLM provider: model id for CVs and cover letters', kind: 'text' },
 	default_documents: { label: 'Documents to write unless you pick per job (cv = CV only, both = CV + cover letter)', kind: 'choice', options: ['cv', 'both'] },
 	min_fit_for_documents: { label: 'Write documents automatically from fit score', kind: 'int' },
 	max_tailored_per_run: { label: 'Max. jobs tailored per run', kind: 'int' },
@@ -488,6 +490,7 @@ export const SETTING_INFO: Record<string, { label: string; kind: 'int' | 'number
 	notify_followups: { label: 'Telegram: follow-up reminders for applications without a reply', kind: 'bool' },
 	followup_after_days: { label: 'Follow-up reminder after … days without a reply (0 = off)', kind: 'int' },
 	followup_no_response_days: { label: '"No reply" reminder after … days (suggests rejected/withdrawn; 0 = off)', kind: 'int' },
+	work_permit_checks: { label: 'I need a work permit: flag jobs below the Blue Card salary or demanding unrestricted work authorization (off = EU citizens)', kind: 'bool' },
 	blue_card_salary_min: { label: 'Blue Card salary threshold (€ gross/year)', kind: 'number' },
 	blue_card_salary_year: { label: 'Blue Card threshold year', kind: 'int' },
 	ui_base_url: { label: 'UI base URL (links in Telegram)', kind: 'text' },

@@ -1,7 +1,7 @@
 # JobHunter
 
-A local job-search assistant for the German market, driven by **Claude Code** on a Claude Pro
-subscription (no API key). Twice a day it searches job boards and your job-alert emails, scores
+A local job-search assistant for the German market, driven by **Claude Code** on a Claude
+subscription (no API key), or by any OpenAI-compatible LLM provider such as Groq. Twice a day it searches job boards and your job-alert emails, scores
 every new posting against your profile, writes a tailored **Lebenslauf + Anschreiben**
 (DIN 5008) or **CV + cover letter**, and reports to Telegram. A local web UI is where you
 review, adjust and apply. **It never submits an application — you always do.**
@@ -18,12 +18,14 @@ review, adjust and apply. **It never submits an application — you always do.**
   - any link you paste. Public pages, including SmartRecruiters, softgarden and SuccessFactors
     career sites, are read automatically.
 - **Never handles a job twice:** URL canonicalisation plus a company/title/city fingerprint.
-- **Screens deterministically:** the salary is compared with the EU Blue Card threshold, and
-  demands such as "unrestricted work authorization" are flagged for you to decide.
+- **Screens deterministically:** if you need a work permit, the salary is compared with the EU
+  Blue Card threshold, and demands such as "unrestricted work authorization" are flagged for you
+  to decide. EU citizens switch this off.
 - **Two models per run:**
-  - *Haiku* scores the fit (0–100), classifies the job and suggests small projects that would
-    close your gaps;
-  - *Sonnet* writes the documents for jobs above your threshold, or any job you pick.
+  - a fast one (*Haiku* by default) scores the fit (0–100), classifies the job and suggests
+    small projects that would close your gaps;
+  - a strong one (*Sonnet* by default) writes the documents for jobs above your threshold, or
+    any job you pick.
 - **Truthful documents:** facts come only from your `profile.yaml`. Anything merely *implied*
   must be listed and approved by you. Style rules are enforced in code: no clichéd openers, 4–5
   paragraphs, the start date in the closing paragraph, links for every project mentioned.
@@ -41,6 +43,31 @@ review, adjust and apply. **It never submits an application — you always do.**
 - **Follow-up reminders:** a Telegram message when an application has had no reply for 14 days,
   with a ready follow-up text, and again after 6 weeks.
 - **Email drafts** (never sent) with the PDFs attached, for jobs that apply by email.
+
+## Your setup, your choices
+
+`uv run python cli.py setup` asks for each of these, writes secrets to `.env` and the rest to the
+settings. Run it again any time; Enter keeps the current value.
+
+| Choice | Options | Default |
+|---|---|---|
+| **AI** | `claude-code` (Claude Code on your subscription) or an OpenAI-compatible provider: Groq, OpenAI, OpenRouter, Mistral, a local Ollama, or any custom `/v1` URL. Setup lists the provider's models; you pick one for searching/scoring and one for writing | `claude-code` |
+| **Drafts mailbox** | Any IMAP provider with app passwords (Yahoo, Gmail, GMX, web.de, T-Online, iCloud, or any host), or none | none |
+| **Job-alert mailbox** | The drafts mailbox, a different one (any provider), or none | none |
+| **Telegram** | On or off | off |
+| **Work permit** | On: flag jobs below the Blue Card salary or demanding unrestricted work authorization. Off: EU citizens | on |
+| **Search filters** | The IT starter set, or your own job titles (any field) | IT starter set |
+
+The job boards are German (Bundesagentur für Arbeit, Arbeitnow, Indeed/LinkedIn/Glassdoor
+Germany) and the documents follow German conventions (DIN 5008, Lebenslauf), in German or English.
+
+**Claude Code or another provider?** Claude Code gives the best documents and costs nothing beyond
+your subscription. With another provider, all the safety checks still run, because they live in
+the tools rather than the model: no job twice, no sending, refused clichés, page limits, visa
+wording and unapproved inferred facts. Smaller open models still invent facts more easily, so read
+every CV and letter before you use it. Free tiers have low per-minute token limits: the run waits
+and retries, but lower **Max. jobs evaluated / tailored per run** in Settings. Apply assist
+(filling forms in the browser) needs Claude in Chrome either way.
 
 ## How it works
 
@@ -84,45 +111,252 @@ scheduled runs.
 | 8 | Apply assist | ✅ |
 | 9 | Job-alert emails (LinkedIn, Instaffo; StepStone/XING prepared) | ✅ |
 | + | Add jobs by link or pasted text, full postings for alert jobs, descriptive PDF names | ✅ |
+| + | Shareable setup: `cli.py setup`, other LLM providers, any mail provider, work-permit switch | ✅ (macOS/Linux untested) |
 
-## Requirements (Windows)
+## Setup: a step-by-step tutorial
 
-- Python 3.12 and [uv](https://docs.astral.sh/uv/):
-  `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
-- [Claude Code](https://claude.com/claude-code), logged in with your Pro subscription.
-  Do **not** set `ANTHROPIC_API_KEY`.
-- Git.
-- Later phases: Node LTS (web UI).
+This takes about 30–45 minutes the first time, and most of it is filling in your profile. You
+only need a terminal. Every command below is for **PowerShell on Windows 10/11**; where macOS or
+Linux differs, it says so.
 
-Run everything on Windows itself, not in WSL: the scheduled task, the Python core and the web
-UI all share one SQLite file, and SQLite locking is unreliable across the WSL/Windows boundary.
+> **Windows, not WSL.** Run everything on Windows itself. The scheduled task, the Python core and
+> the web UI all share one SQLite file, and SQLite locking is unreliable across the WSL/Windows
+> boundary.
 
-## Setup
+### Step 1: Install the tools
+
+Open **PowerShell** (Start menu → type `PowerShell`) and install what's missing:
+
+| Tool | Why | Install | Check |
+|---|---|---|---|
+| **Git** | download the project | <https://git-scm.com/download/win> (the defaults are fine) | `git --version` |
+| **uv** | installs Python 3.12 and the dependencies for you | `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` | `uv --version` |
+| **Node.js LTS** | the web UI | <https://nodejs.org> (the LTS button) | `node --version` |
+| **Claude Code** (recommended) | the AI that runs the search and writes your documents | <https://claude.com/claude-code>, then run `claude` once and log in with your Claude subscription | `claude --version` |
+
+**Close and reopen PowerShell** after installing, so the new commands are found.
+
+Don't want Claude Code? Skip it and get an API key from an OpenAI-compatible provider instead,
+for example [Groq](https://console.groq.com/keys) (has a free tier), OpenAI, OpenRouter or
+Mistral, or run a local model with [Ollama](https://ollama.com). See
+[Your setup, your choices](#your-setup-your-choices) for the trade-offs.
+
+> Never set `ANTHROPIC_API_KEY`. Claude Code runs on your subscription, and the run scripts
+> remove that variable on purpose.
+
+### Step 2: Download JobHunter
+
+Pick a folder for it (here `D:\projekte`), then:
 
 ```powershell
+cd D:\projekte
 git clone https://github.com/lenoben/jobhunt.git jobhunter
 cd jobhunter
-uv sync                                   # creates .venv and installs dependencies
-Copy-Item .env.example .env               # fill in later phases' secrets
-New-Item -ItemType Directory -Force profile
-Copy-Item profile.example.yaml profile/profile.yaml   # then edit it with your data
-uv run python cli.py init-db              # creates data/jobhunter.db
-uv run python cli.py seed-filters         # inserts the default search filters
 ```
 
-Then fill in `email` in `profile/profile.yaml` (it has a `<YOUR_ADDRESS>@myyahoo.com` placeholder).
+Run all later commands **inside this `jobhunter` folder**.
+
+### Step 3: Install the dependencies
+
+```powershell
+uv sync
+```
+
+This creates a private Python environment in `.venv\` with everything JobHunter needs, including
+Typst for the PDFs. Nothing is installed system-wide. It takes a minute the first time.
+
+### Step 4: Get your passwords and keys ready (all optional)
+
+The setup wizard in the next step asks for these, so have them at hand. Skip whatever you don't
+want.
+
+- **A mailbox for email drafts.** For jobs that apply by email, JobHunter saves a ready email with
+  your PDFs as a *draft*; it never sends anything. You need an **app password**, never your
+  normal password:
+  - Yahoo: <https://login.yahoo.com/account/security> → *Generate app password*;
+  - Gmail: turn on 2-Step Verification, then <https://myaccount.google.com/apppasswords>;
+  - GMX / web.de: enable IMAP in the mail settings (and use an app password if you have
+    two-factor login).
+- **A mailbox with your job alerts.** If you get LinkedIn or Instaffo job-alert emails,
+  JobHunter can read them read-only: nothing is marked as read, deleted or moved. It can be the
+  same mailbox as above or a different one, even with a different provider.
+- **Telegram**, for a message after each run: open [@BotFather](https://t.me/BotFather), send
+  `/newbot`, follow the steps and copy the **bot token**. Then send your new bot any message
+  (e.g. "hi"), so it can find your chat.
+- **An LLM API key**, only if you chose another provider than Claude Code in Step 1.
+
+### Step 5: Run the setup wizard
+
+```powershell
+uv run python cli.py setup
+```
+
+It asks one question at a time. The value in `[brackets]` is the default: press **Enter** to
+take it. Passwords and keys are typed hidden and never shown again. What it asks:
+
+| Part | Question | What to answer |
+|---|---|---|
+| 1. Requirements | — | Shows ✓/✗ for Claude Code, Node, npm and Typst. Install anything marked ✗ that you need |
+| 2. Your files | — | Creates `.env` (your secrets) and `profile/profile.yaml` (your data) from the examples |
+| 3. AI | **Provider** | `1` for `claude-code`, or your provider's number |
+| | **Models** | Claude Code: Enter keeps *haiku* for scoring and *sonnet* for writing. Other providers: the wizard lists the provider's models; pick a **fast, cheap** one for searching/scoring and a **strong** one for writing |
+| 4. Email | **Save application emails as drafts?** | `y`, then the address and the app password; or `n` |
+| | **Read job alerts from** | the drafts mailbox, another mailbox, or none |
+| 5. Telegram | **Get run summaries on Telegram?** | `y` and the bot token. Leave the chat id empty if you don't know it; Step 7 finds it |
+| 6. Work permit | **Do you need a work permit?** | `y` if you're not an EU citizen: jobs below the EU Blue Card salary or demanding unrestricted work authorization are flagged for you to decide. `n` for EU citizens |
+| 7. Search filters | **Use the IT starter set?** | `y` for software, AI/data, web/app, DevOps, embedded and fintech/health-tech roles. `n` to type your own, one per line, e.g. `Pflege: Pflegefachkraft, Gesundheits- und Krankenpfleger`, then an empty line |
+
+The mail server is found from your address (`@gmail.com`, `@yahoo.com`, `@gmx.de`, `@web.de`,
+`@t-online.de`, `@icloud.com`). For any other address the wizard asks for the IMAP host.
+
+Made a mistake? Run `uv run python cli.py setup` again. It's safe to repeat, and Enter keeps
+everything you already answered. Ctrl+C stops it; the parts you already finished stay saved.
+
+### Step 6: Fill in your profile
+
+Open `profile\profile.yaml` in any text editor (e.g. `notepad profile\profile.yaml`). **This file
+is the only source of facts for your CVs and letters.** JobHunter never invents anything, so
+whatever is missing here won't appear in your documents. Fill in:
+
+- `personal`: name, address, email, phone, and optionally a photo path (German CVs only);
+- `summary_de` / `summary_en`: a few lines about you;
+- `experience`, `education`, `projects`, `certificates`: dates as `MM/YYYY`, bullets in German
+  and English, links for projects;
+- `skills`, and `languages` with CEFR levels like `B2`;
+- `availability`: earliest start date and hours per week;
+- `motivation`: one short paragraph per search filter (*why do you want this kind of job?*). The
+  cover letters open with it.
+
+**Shortcut:** in the `jobhunter` folder, run `claude` and say *"Fill in profile/profile.yaml from
+my CV at C:\path\to\cv.pdf. Ask me about every gap, don't guess."* Then read every line yourself.
+
+Check the file:
+
+```powershell
+uv run python cli.py check-profile
+```
+
+### Step 7: Test what you set up
+
+Every test is safe: nothing is sent and nothing is applied to. Skip the ones for things you
+didn't set up.
+
+```powershell
+uv run python cli.py render-test                  # sample CVs and letters → output\_render-test\
+uv run python cli.py mail-test                    # logs in to the drafts mailbox, finds the Drafts folder
+uv run python cli.py mail-test --account alerts   # logs in to the job-alert mailbox (read-only)
+uv run python cli.py telegram-setup               # prints your chat id → TELEGRAM_CHAT_ID in .env
+uv run python cli.py telegram-test                # sends a test message
+```
+
+`mail-test --create` also saves one draft called *JobHunter test* to your own address, so you
+can see it in your mailbox.
+
+### Step 8: Start the web UI
+
+```powershell
+cd ui
+npm install          # once, and after updates
+npm run build        # once, and after updates
+npm start            # then open http://localhost:5173
+```
+
+Leave this window open while you use the UI. The UI only answers on this PC unless you allow
+your phone ([see below](#phones-and-tablets-on-the-pcs-mobile-hotspot)). Have a look around:
+**Filters** shows your search filters, and **Settings** has the limits, models and switches.
+
+### Step 9: Your first run
+
+Open a **second** PowerShell window in the `jobhunter` folder:
+
+```powershell
+.\run.ps1 -Trigger manual
+```
+
+The first run takes a few minutes. It searches every active filter, scores the new jobs and
+writes CVs for the best ones. The log goes to `logs\`. Then refresh the UI: new jobs appear under
+**Jobs**, anything that needs you under **Needs you**, and the run itself under **Runs**.
+
+> With another LLM provider on a free tier, first lower **Max. new jobs evaluated per run** and
+> **Max. jobs tailored per run** in Settings (e.g. to 10 and 2). The run waits when it hits the
+> provider's rate limit, but smaller runs finish sooner.
+
+### Step 10: Run it automatically twice a day
+
+```powershell
+.\setup-task.ps1
+```
+
+This registers the Windows task **JobHunter**. It runs at 08:00 and 18:00, catches up after the
+PC was off, and runs only while you're logged on, so no password is stored. Run the script again
+after changes; it updates the task. You'll find it in *Task Scheduler* as **JobHunter**.
+
+**macOS/Linux (not tested yet):** `chmod +x run.sh`, then `crontab -e` and add
+`0 8,18 * * * cd /path/to/jobhunter && ./run.sh scheduled`.
+
+### Every day
+
+1. Read the Telegram summary, or open the UI.
+2. Check **Needs you**: approve or reject inferred facts, and decide on flagged jobs.
+3. Open a job, read the fit notes, download the PDFs, and use the **Apply kit** to fill in the
+   form. **You** always submit.
+4. Click **Mark as applied**. JobHunter reminds you to follow up after 14 days.
+
+### Updating
+
+```powershell
+git pull
+uv sync
+cd ui; npm install; npm run build; cd ..
+```
+
+Database changes are applied automatically on the next run. An update never touches your
+`.env`, `profile\`, `data\` or `output\`.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `uv`, `claude` or `node` "is not recognized" | Close and reopen PowerShell after installing. Still missing: reinstall it |
+| "running scripts is disabled on this system" | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then try again |
+| `mail-test` can't log in | Use an **app password**, not your normal one. GMX/web.de: enable IMAP in the mail settings first |
+| `mail-test`: "No Drafts folder" | Open your webmail once so the Drafts folder exists |
+| A run is "refused" | The last run finished less than 4 hours ago (setting **Min. hours between runs**). Use **Generate now** for documents, or wait |
+| Other provider: "setting llm_model_writer is empty" | Run `uv run python cli.py setup` again and pick the models |
+| Other provider: HTTP 401 | `LLM_API_KEY` in `.env` is wrong or expired |
+| A document claims something untrue | Fix `profile.yaml` (the only source of facts), then click **Write documents** again on the job page |
+
+<details><summary>Manual setup instead of the wizard</summary>
+
+```powershell
+Copy-Item .env.example .env               # then fill it in by hand; the comments explain each key
+New-Item -ItemType Directory -Force profile
+Copy-Item profile.example.yaml profile/profile.yaml
+uv run python cli.py init-db              # creates data/jobhunter.db
+uv run python cli.py seed-filters         # inserts the IT starter filters
+```
+</details>
+
+## Reference
 
 ### Mail settings in `.env` (two accounts)
 
 | Account | Used for | Access |
 |---------|----------|--------|
 | **SEND** (`SEND_*`) | Application emails, saved as **drafts** (never sent) | creates drafts only |
-| **ALERTS** (`ALERTS_*`) | Reading LinkedIn/StepStone/XING job-alert emails (planned source, Phase 9) | read-only: no drafts, no sending, nothing marked as read |
+| **ALERTS** (`ALERTS_*`) | Reading LinkedIn/Instaffo job-alert emails (StepStone/XING prepared) | read-only: no drafts, no sending, nothing marked as read |
 
-Both are generic IMAP over SSL with app passwords, so any provider works. SEND defaults to Yahoo.
-For ALERTS, set the host yourself (e.g. `imap.mail.yahoo.com`, `imap.gmail.com`). If you leave
+Both are optional and generic IMAP over SSL with app passwords, so any provider works, and the
+two can be different providers. The IMAP host comes from `<ROLE>_IMAP_HOST` if set, else from
+`<ROLE>_MAIL_PROVIDER` (`yahoo`, `gmail`, `gmx`, `webde`, `t-online`, `icloud`), else from the
+address (`@gmail.com` → `imap.gmail.com`, …). If you leave
 `ALERTS_MAIL_ADDRESS`/`ALERTS_MAIL_APP_PASSWORD` empty, alerts are read from the SEND account,
-still read-only.
+still read-only. Without SEND no drafts are saved; with neither, the job-alert source finds
+nothing. Outlook.com/Hotmail no longer accepts app passwords over IMAP, so it isn't supported.
+
+Gmail: turn on 2-Step Verification, then create an app password at
+<https://myaccount.google.com/apppasswords>. GMX / web.de: enable IMAP access in the mail
+settings (and use an app password if you have two-factor login).
 
 **Create a Yahoo app password** (your normal Yahoo password never goes into this project):
 1. Sign in at <https://login.yahoo.com/account/security>.
@@ -143,13 +377,15 @@ still read-only.
 Test with `uv run python cli.py mail-test` (SEND account), which logs in and shows the folders and
 the Drafts folder. `mail-test --create` saves one draft with the subject `JobHunter test` to your
 own address. The Drafts folder is the one with the IMAP `\Drafts` special-use flag; if no folder
-has the flag, a folder named `Draft` (Yahoo's name) or `Drafts` is used.
+has the flag, a folder named `Draft` (Yahoo), `Drafts` or `Entwürfe` (GMX, web.de, T-Online) is used.
 `mail-test --account alerts` only checks the ALERTS login and lists its folders.
 
 ## CLI
 
 | Command | Does |
 |---------|------|
+| `setup` | Guided setup: AI provider and models, mailboxes, Telegram, work permit, search filters. Safe to run again |
+| `agent --stage S [--trigger T] [--job N]` | One run stage with another LLM provider (used by `run.ps1`/`run.sh`) |
 | `init-db` | Creates `data/jobhunter.db` (WAL mode) and applies pending migrations from `core/migrations/` |
 | `seed-filters` | Inserts the default search filters (skips ones that already exist by name) and lists them |
 | `filters` | Lists all search filters |
@@ -211,7 +447,7 @@ npm start            # http://localhost:5173 (local only)
 - **Needs you:** approve or reject inferred facts, and resolve flagged jobs.
 - **Filters:** create, edit, switch on/off and delete.
 - **Runs:** the run history.
-- **Settings:** limits, Telegram on/off, Blue Card threshold, and **Run now**.
+- **Settings:** limits, models, Telegram on/off, the work-permit checks and Blue Card threshold, and **Run now**.
 
 <p>
   <img src="docs/jobhunter_3.jpeg" width="49%" alt="A job page: status, documents to download or write again, where to apply, fit notes and the Apply kit">
@@ -264,10 +500,17 @@ Devices on networks not listed are always refused. To sign out every device, cha
    18:00, catches up after the PC was off, wakes the PC, needs network, and stops after 2 h at
    most. It runs only while you're logged on, so no password is stored. Run the script again
    after changes; it updates the task.
+   **macOS/Linux (untested):** `chmod +x run.sh`, then `crontab -e` and add
+   `0 8,18 * * * cd /path/to/jobhunter && ./run.sh scheduled`.
 
 Each run has two stages:
-- **Haiku** (setting `model_filter`) searches, filters and scores.
-- **Sonnet** (`model_writer`) writes CVs and cover letters.
+- a fast model searches, filters and scores: **Haiku** by default (setting `model_filter`), or
+  `llm_model_filter` with another provider;
+- a strong model writes CVs and cover letters: **Sonnet** (`model_writer`), or
+  `llm_model_writer`.
+
+With `LLM_PROVIDER` other than `claude-code`, `run.ps1`/`run.sh` run each stage with
+`cli.py agent` instead of `claude -p`: the same skill, the same MCP tools, your provider's models.
 
 Documents are written automatically for jobs with fit ≥ `min_fit_for_documents` (60), and for
 any job where you clicked *Apply anyway* or *Write docs*. All three settings are editable in the

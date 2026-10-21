@@ -137,3 +137,21 @@ Check by hand:
 
 Before using the built UI (`npm start`), build it once: `cd ui; npm run build`. The dev server
 (`npm run dev`) doesn't need this.
+
+## Added 2026-10-25: shareable setup
+
+`uv run pytest -q tests/test_setup.py tests/test_agent.py tests/test_mail_config.py tests/test_search.py`
+
+| File · test | Checks |
+|---|---|
+| `test_setup.py` · `test_write_env_keeps_comments_and_order` | The wizard edits `.env` in place: comments and order kept, new keys appended |
+| `test_setup.py` · `test_parse_filter_lines` | "Name: title, title" lines → filters |
+| `test_setup.py` · `test_groq_gmail_only_eu_citizen_own_filters` | Scripted wizard: Groq with models picked from the list, Gmail drafts (host guessed), alerts from the same mailbox, no Telegram, no work permit, own filters; secrets never printed |
+| `test_setup.py` · `test_claude_code_yahoo_drafts_gmail_alerts` | Scripted wizard: Claude Code, Yahoo drafts plus Gmail alerts (mixed providers), starter filters |
+| `test_agent.py` (6 tests) | Provider presets and key handling (key never in `repr`), model per stage, `read_file` only opens templates/skills (never `.env`/profile), old tool results trimmed first, 429 retry, fast failure on 400 |
+| `test_mail_config.py` (new tests) | Host from the address (gmail, web.de, gmx, ymail), `*_MAIL_PROVIDER` presets, explicit host wins, unknown provider refused, mail optional |
+| `test_search.py` · `test_work_permit_checks_off_flags_nothing` | With `work_permit_checks = 0` nothing is flagged, but the salary is still read |
+
+**By hand, still to do:**
+- a real run with an OpenAI-compatible provider (e.g. Groq): `LLM_PROVIDER=groq` in `.env`, models via `cli.py setup`, then `.\run.ps1 -Trigger manual`;
+- `run.sh` on Linux/macOS.

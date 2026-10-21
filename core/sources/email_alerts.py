@@ -282,6 +282,8 @@ def read_new_messages(conn, settings: dict[str, str], cfg=None) -> list[_Fetched
     since = since_day.strftime("%d-%b-%Y")
     folder = settings.get("alert_folder") or "INBOX"
 
+    if cfg is None and not mail_config.configured("alerts"):
+        return []  # no mail account in .env: this source simply finds nothing
     cfg = cfg or mail_config.load_alerts_config()
     imap = mail_drafts.connect(cfg)
     try:

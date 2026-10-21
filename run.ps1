@@ -1,5 +1,6 @@
 # JobHunter entry point for Task Scheduler (CLAUDE.md §9, §10). Usage: .\run.ps1 [-Trigger scheduled|manual]
-# Runs Claude headless on the Pro subscription with only the jobhunter MCP tools + Read, in two stages:
+# Runs Claude headless on the Pro subscription with only the jobhunter MCP tools + Read, in two stages
+# (or, if LLM_PROVIDER in .env is not claude-code, the same stages via `cli.py agent`, core/agent.py):
 #   1 filter (model_filter, default haiku): start_run, search, evaluate/score, project suggestions
 #   2 write  (model_writer, default sonnet): CVs + cover letters, email drafts, finish_run
 #   -Trigger docs ("Generate now" in the UI): only the write stage, only for jobs the user requested
@@ -33,7 +34,19 @@ function Get-Model([string]$key, [string]$default) {
     return $default   # missing/unknown value → safe default
 }
 
+$provider = (uv run python cli.py llm-provider 2>$null | Select-Object -Last 1)
+if (-not $provider) { $provider = 'claude-code' }
+
 function Invoke-Stage([string]$stage, [string]$model) {
+    if ($provider -ne 'claude-code') {
+        # Another LLM provider: the agent loop uses the same MCP tools and the same skill; the
+        # models come from the settings llm_model_filter / llm_model_writer.
+        Write-Log "stage '$stage' started (provider: $provider)"
+        uv run python cli.py agent --trigger $Trigger --stage $stage --job $JobId *>&1 | Tee-Object -FilePath $log -Append | Out-Host
+        $c = $LASTEXITCODE
+        Write-Log "stage '$stage' exited with code $c"
+        return $c
+    }
     Write-Log "stage '$stage' started (model: $model)"
     $prompt = "Run the job-hunt workflow defined in .claude/skills/job-hunt/SKILL.md. Trigger: $Trigger. Stage: $stage."
     if ($JobId -gt 0) { $prompt += " Job: $JobId." }

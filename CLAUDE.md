@@ -1,7 +1,8 @@
 # JobHunter — Project Blueprint
 
 A local, open-source job-search assistant for the German market, driven by Claude Code on a
-Claude Pro subscription (no Anthropic API key). It finds jobs, filters and scores them, writes a
+Claude Pro subscription (no Anthropic API key), or optionally by another OpenAI-compatible LLM
+provider (core §16). It finds jobs, filters and scores them, writes a
 tailored CV + cover letter per job, logs everything in SQLite, notifies via Telegram, and shows
 everything in a localhost web UI. **Applying is always finished by the human.**
 
@@ -23,7 +24,7 @@ everything in a localhost web UI. **Applying is always finished by the human.**
 | R4 | **Personal data stays local.** `profile/` and `data/` are gitignored. Never send profile data anywhere except into Claude's own context and the generated documents. |
 | R5  | **Never invent facts.** CVs and cover letters use only what is in `profile/profile.yaml`, plus inferred facts approved under R9. Anything else goes into the fit notes as a gap, never into the documents. |
 | R6 | **Respect sources.** Prefer official/public APIs. Throttle scrapers (≥3 s between requests per site), cap results per run, and back off on 429/403. If a source blocks, record the error and continue with the others. |
-| R7 | **Never use `ANTHROPIC_API_KEY`.** Everything runs on the Pro subscription. `run.ps1` must unset it before calling `claude`. |
+| R7 | **Never use `ANTHROPIC_API_KEY`.** Everything runs on the Pro subscription. `run.ps1` must unset it before calling `claude`. A user who picks another provider (`LLM_PROVIDER` ≠ `claude-code`, core §16) keeps that provider's key in `.env` only (R3). |
 | R8 | **Never process a job twice.** Always call `is_seen` before doing any work on a job. |
 | R9  | **Inferred facts (approval required).** If a job needs something the profile lacks, but the profile clearly implies the ability (e.g. strong C/C++ → can learn a specific embedded toolchain), you may add it as an *inferred fact* only if: (a) it is a capability or learning statement ("kann mich schnell in X einarbeiten", "Grundlagen in X durch Y"), never claimed experience, years, employers, grades, or certificates; (b) it is recorded under `inferred` with statement, where, and basis; (c) the job is set to `needs_attention` (reason `inferred_facts`) and no email draft is created until the user approves. Rejected inferences are never reused. |
 | R10 | **Relevance over completeness.** A cover letter mentions at most 2–3 projects or experiences, chosen by relevance to the job's requirements, and each must be linked to a specific requirement. Unrelated projects are left out even if impressive. The CV may list more, ordered by relevance. |
@@ -42,7 +43,8 @@ everything in a localhost web UI. **Applying is always finished by the human.**
 | Documents | **Typst** templates → PDF via the `typst` Python package | No LaTeX install needed |
 | Web UI | **SvelteKit** (Node LTS) + `better-sqlite3` | Reads/writes the same DB file |
 | Notifications | Telegram Bot API over HTTPS | One-way in v1 |
-| Mail accounts | Generic IMAP over SSL, app passwords only, loaded by `core/mail_config.py` | Two accounts. **SEND** (`SEND_MAIL_ADDRESS`, `SEND_MAIL_APP_PASSWORD`, `SEND_IMAP_HOST`, `SEND_IMAP_PORT`; default **Yahoo** `imap.mail.yahoo.com:993`): `mail_drafts.py` saves application drafts there, never SMTP send in v1. **ALERTS** (`ALERTS_MAIL_ADDRESS`, `ALERTS_MAIL_APP_PASSWORD`, `ALERTS_IMAP_HOST`, `ALERTS_IMAP_PORT`; any provider, host required): read-only, used only by the `email_alerts` source (§5b). If the ALERTS address or password is empty, alerts are read with the SEND credentials. A config loaded for the alerts role can never create drafts or send, even when it falls back to SEND. Drafts folder: the folder with the IMAP `\Drafts` special-use flag; if none has it, fall back to a folder named `Draft` or `Drafts` (Yahoo uses `Draft`) |
+| LLM | Claude Code (`claude -p`, default) or any OpenAI-compatible API via `core/agent.py` | core §16 |
+| Mail accounts | Generic IMAP over SSL, app passwords only, loaded by `core/mail_config.py` | Two accounts, both optional, any provider each (host: `<ROLE>_IMAP_HOST` → `<ROLE>_MAIL_PROVIDER` preset → address domain; core §16). **SEND** (`SEND_MAIL_ADDRESS`, `SEND_MAIL_APP_PASSWORD`, `SEND_IMAP_HOST`, `SEND_IMAP_PORT`; fallback **Yahoo** `imap.mail.yahoo.com:993`): `mail_drafts.py` saves application drafts there, never SMTP send in v1. **ALERTS** (`ALERTS_MAIL_ADDRESS`, `ALERTS_MAIL_APP_PASSWORD`, `ALERTS_IMAP_HOST`, `ALERTS_IMAP_PORT`; any provider, host required): read-only, used only by the `email_alerts` source (§5b). If the ALERTS address or password is empty, alerts are read with the SEND credentials. A config loaded for the alerts role can never create drafts or send, even when it falls back to SEND. Drafts folder: the folder with the IMAP `\Drafts` special-use flag; if none has it, fall back to a folder named `Draft` or `Drafts` (Yahoo uses `Draft`) |
 | Scheduling | Windows Task Scheduler → `run.ps1` → `claude -p` | §9 |
 
 ---
@@ -81,6 +83,10 @@ Headless runs cannot answer permission prompts, so pre-approve only what the wor
 the `jobhunter` MCP tools (`mcp__jobhunter__*` / `mcp__jobhunter`), `Read` inside the project,
 and nothing that sends data elsewhere. Do **not** allow arbitrary Bash or web access in headless
 mode. Verify the exact permission-rule syntax against current Claude Code docs.
+
+With `LLM_PROVIDER` ≠ `claude-code` (core §16), step 3 runs `uv run python cli.py agent --trigger …
+--stage …` instead of `claude -p`. `run.sh` is the macOS/Linux twin of `run.ps1` (cron; not tested
+yet, 2026-10-25).
 
 ### `setup-task.ps1`
 Registers task `JobHunter`: daily triggers 08:00 and 18:00, `-StartWhenAvailable` (catch up after
@@ -182,8 +188,8 @@ unrestricted work authorization (§5a phrases), flag `work_authorization`. The p
 ## Where the rest lives
 
 - `core/CLAUDE.md`: §5 job sources, dedup, §5a screening, §5b email alerts · §6 MCP server notes ·
-  §7 documents and cover-letter rules · §8 notifications · §12b–§12d feature additions ·
-  §15 seed-filter notes
+  §7 documents and cover-letter rules · §8 notifications · §12b–§12f feature additions ·
+  §15 seed-filter notes · §16 shareable setup (setup wizard, LLM providers, mail presets, work permit)
 - `ui/CLAUDE.md`: §12 web UI
 - Folder layout, the DB schema, the MCP tool list and the CLI commands are read from the code
   (`core/migrations/`, `mcp_server/server.py`, `cli.py --help`).

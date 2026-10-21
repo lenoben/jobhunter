@@ -297,8 +297,11 @@ def save_email_draft(job_id: int, subject: str, body: str) -> dict[str, Any]:
     the CV and, if written, the letter and Motivationsschreiben attached). Never sends (R1) — the user reviews and sends it."""
     if not subject.strip() or not body.strip():
         raise ToolError("subject and body must not be empty")
-    from core import mail_drafts
+    from core import mail_config, mail_drafts
 
+    if not mail_config.configured("send"):
+        return {"job_id": job_id, "saved_to": None, "sent": False,
+                "note": "no SEND mail account in .env, so no draft; the user writes the email from the apply kit"}
     with _db() as conn:
         job = jobs.get_job(conn, job_id)
         if not job["apply_email"]:
@@ -339,9 +342,13 @@ def check_work_authorization(text: str) -> dict[str, Any]:
     """Scan text from a live application form/page for demands the user must answer personally
     (§5a: unbefristete/uneingeschränkte Arbeitserlaubnis, EU-Staatsbürgerschaft, EU citizens only,
     no visa sponsorship, …). Returns {match: phrase or null}. On a match: leave those questions
-    empty and flag_attention(job_id, 'work_authorization', <phrase>)."""
+    empty and flag_attention(job_id, 'work_authorization', <phrase>). If the user turned the
+    work-permit checks off (setting work_permit_checks = '0'), match is always null."""
     from core.checks import check_work_authorization as check
 
+    with _db() as conn:
+        if db.get_settings(conn).get("work_permit_checks", "1") != "1":
+            return {"match": None, "note": "work-permit checks are off"}
     return {"match": check(text, None)}
 
 

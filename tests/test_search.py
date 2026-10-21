@@ -87,6 +87,16 @@ def test_screening_sets_status_and_history(conn, fake):
     assert "unrestricted work authorization" in note
 
 
+def test_work_permit_checks_off_flags_nothing(conn, fake):
+    """EU citizens turn the §5a work-permit checks off: the salary is still read, nothing is flagged."""
+    conn.execute("UPDATE settings SET value = '0' WHERE key = 'work_permit_checks'")
+    run_search(conn, load_filters(conn)[0], sources=["fake"])
+    rows = {r["title"]: r for r in conn.execute("SELECT * FROM jobs")}
+    assert rows["Python Developer"]["status"] == "new"
+    low = rows["Go Developer"]
+    assert (low["status"], low["salary_flag"], low["salary_annual_eur"]) == ("new", "ok", 36000)
+
+
 def test_details_fetched_only_for_new_unskipped_jobs(conn, fake):
     f = load_filters(conn)[0]
     run_search(conn, f, sources=["fake"])

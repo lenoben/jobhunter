@@ -13,7 +13,7 @@ Part of the JobHunter blueprint (root `CLAUDE.md`, whose hard rules R1–R11 app
 | `/attention` | Only `needs_attention` jobs with reasons and what to do. For `inferred_facts`: the list (statement, where, basis) with **Approve** (→ `docs_ready`, sets `applications.inferred_approved_at`, `changed_by='user'`) and **Reject** (back to `shortlisted` for a re-render without them). |
 | `/filters` | List, create, edit, toggle active, delete search filters (all fields in §4). |
 | `/runs` | Run history with counts and per-source errors. |
-| `/settings` | `max_tailored_per_run`, `min_hours_between_runs`, Telegram on/off, "Run now" button (spawns `run.ps1` with trigger `manual`). |
+| `/settings` | `max_tailored_per_run`, `min_hours_between_runs`, Telegram on/off, the models (Claude Code and, for another provider, `llm_model_filter`/`llm_model_writer`), `work_permit_checks` (core §16), "Run now" button (spawns `run.ps1` with trigger `manual`). |
 
 Server-side only DB access (`+page.server.ts`, form actions). Serve PDFs through a route that
 only reads from `output/`. Bind to `127.0.0.1` only. Simple, clean design; light/dark mode.

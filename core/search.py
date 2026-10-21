@@ -42,7 +42,6 @@ def prefilter(p: JobPosting, f: SearchFilter) -> str | None:
 def run_search(conn: sqlite3.Connection, f: SearchFilter, sources: list[str] | None = None,
                limit: int = 20, dry_run: bool = False, log: Callable[[str], None] = lambda _m: None) -> SearchResult:
     settings = get_settings(conn)
-    threshold = float(settings.get("blue_card_salary_min", "45934.20"))
     cutoff = (date.today() - timedelta(days=f.max_age_days)).isoformat()
     result = SearchResult()
     batch_keys: set[str] = set()
@@ -92,7 +91,7 @@ def run_search(conn: sqlite3.Connection, f: SearchFilter, sources: list[str] | N
                         p = adapter.fetch_details(p)
                     except SourceError as e:
                         result.errors.append({"source": key, "message": f"details {p.source_job_id}: {e}"})
-                note = _screen(p, threshold)
+                note = _screen(p, settings)
                 result.new.append(p)
 
             if not dry_run:
@@ -112,7 +111,7 @@ def store_for_review(conn: sqlite3.Connection, postings: list[JobPosting]) -> li
     They are stored as needs_attention / alert_review — not evaluated, so no tokens are used —
     until the user sends them to evaluation or dismisses them in the UI. Dedup (R8) and the §5a
     checks apply as for every job; a §5a hit keeps its own, more specific reason."""
-    threshold = float(get_settings(conn).get("blue_card_salary_min", "45934.20"))
+    settings = get_settings(conn)
     stored, keys = [], set()
     for p in postings:
         p.canonical_url = canonical_url(p.url)
@@ -120,7 +119,7 @@ def store_for_review(conn: sqlite3.Connection, postings: list[JobPosting]) -> li
         if p.canonical_url in keys or p.fingerprint in keys or jobs.find_seen(conn, p.canonical_url, p.fingerprint):
             continue
         keys.update((p.canonical_url, p.fingerprint))
-        note = _screen(p, threshold)
+        note = _screen(p, settings)
         if p.status != "needs_attention":
             p.status, p.attention_reason = "needs_attention", "alert_review"
             note = "alert_review: matches no filter's keywords — evaluate or dismiss" + (f"; {note}" if note else "")
@@ -133,12 +132,16 @@ def store_for_review(conn: sqlite3.Connection, postings: list[JobPosting]) -> li
     return stored
 
 
-def _screen(p: JobPosting, threshold: float) -> str | None:
-    """Apply §5a checks; sets salary fields and status. Returns a status_history note."""
+def _screen(p: JobPosting, settings: dict[str, str]) -> str | None:
+    """Apply §5a checks; sets salary fields and status. Returns a status_history note.
+    With the setting work_permit_checks = '0' (e.g. EU citizens) the salary is still read, but
+    nothing is flagged for the Blue Card threshold or work-authorization wording."""
+    permit = settings.get("work_permit_checks", "1") == "1"
+    threshold = float(settings.get("blue_card_salary_min", "45934.20")) if permit else 0.0
     salary = checks.check_salary(p.salary_text, threshold)
     p.salary_annual_eur, p.salary_flag = salary.annual_eur, salary.flag
     notes = []
-    if phrase := checks.check_work_authorization(p.title, p.description):
+    if permit and (phrase := checks.check_work_authorization(p.title, p.description)):
         p.status, p.attention_reason = "needs_attention", "work_authorization"
         notes.append(f'work_authorization: ad says "{phrase}"')
     if salary.flag == "below_blue_card_threshold":

@@ -32,6 +32,8 @@ The user is present. You **prepare** the application; the user **submits** it.
      \"<match>\"")`. Leave every work-authorization, visa, citizenship and sponsorship question
      **empty**, and tell the user the exact wording. You may still fill in the other fields, but
      say clearly that the user must decide whether to apply.
+   - If the user turned the work-permit checks off, it never returns a match: don't flag, but
+     still leave those questions empty for the user.
 4. **Fill in** the fields from `kit.fields`:
    - name, first/last name, email, phone, address parts, earliest start, hours per week,
      salary expectation, LinkedIn/GitHub/website;

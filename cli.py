@@ -424,6 +424,28 @@ def cmd_setting(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_setup(args: argparse.Namespace) -> int:
+    from core import setup
+    try:
+        return setup.run()
+    except (KeyboardInterrupt, EOFError):
+        print("\nSetup stopped. Steps already answered are saved; run it again to continue.")
+        return 1
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    """One run stage with an OpenAI-compatible provider (LLM_PROVIDER ≠ claude-code)."""
+    from core import agent
+    return agent.main(args.trigger, args.stage, args.job)
+
+
+def cmd_llm_provider(args: argparse.Namespace) -> int:
+    """Print LLM_PROVIDER (claude-code by default); run.ps1/run.sh pick claude -p or the agent by it."""
+    from core import agent
+    print(agent.provider_name())
+    return 0
+
+
 def _print_filters(conn) -> None:
     filters = load_filters(conn)
     if not filters:
@@ -440,6 +462,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")  # umlauts on Windows consoles
     parser = argparse.ArgumentParser(prog="cli.py", description="JobHunter CLI")
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("setup", help="Guided first-time setup: AI provider, mail, Telegram, work permit, filters"
+                   ).set_defaults(func=cmd_setup)
     sub.add_parser("init-db", help="Create data/jobhunter.db and apply migrations").set_defaults(func=cmd_init_db)
     sub.add_parser("seed-filters", help="Insert the default search filters").set_defaults(func=cmd_seed_filters)
     sub.add_parser("filters", help="List search filters").set_defaults(func=cmd_filters)
@@ -510,6 +534,15 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("setting", help="Print one setting's value")
     p.add_argument("key")
     p.set_defaults(func=cmd_setting)
+    p = sub.add_parser("agent", help="Run one stage with another LLM provider (used by run.ps1/run.sh)")
+    p.add_argument("--trigger", default="manual",
+                   choices=["scheduled", "manual", "docs", "single", "evaluate"])
+    p.add_argument("--stage", required=True,
+                   choices=["filter", "write", "docs", "evaluate", "single", "single-write"])
+    p.add_argument("--job", type=int, default=0)
+    p.set_defaults(func=cmd_agent)
+    sub.add_parser("llm-provider", help="Print LLM_PROVIDER from .env (claude-code by default)"
+                   ).set_defaults(func=cmd_llm_provider)
     p = sub.add_parser("check-run", help="Exit 1 if a run started since --since is still open")
     p.add_argument("--since", required=True, help="UTC timestamp 'YYYY-MM-DD HH:MM:SS'")
     p.set_defaults(func=cmd_check_run)

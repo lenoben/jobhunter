@@ -184,6 +184,7 @@ def imap(monkeypatch):
     fake = FakeIMAP([ALERT, RECOMMENDATION, HIRING])
     monkeypatch.setattr(ea.mail_drafts, "connect", lambda cfg: fake)
     monkeypatch.setattr(ea.mail_config, "load_alerts_config", lambda: object())
+    monkeypatch.setattr(ea.mail_config, "configured", lambda account: True)
     adapter = SOURCES["email_alerts"]
     adapter._cache = None
     return fake
@@ -241,6 +242,7 @@ def test_old_mails_respect_max_age(conn, monkeypatch):
     fake = FakeIMAP([old])
     monkeypatch.setattr(ea.mail_drafts, "connect", lambda cfg: fake)
     monkeypatch.setattr(ea.mail_config, "load_alerts_config", lambda: object())
+    monkeypatch.setattr(ea.mail_config, "configured", lambda account: True)
     SOURCES["email_alerts"]._cache = None
     assert SOURCES["email_alerts"].search(F(["Embedded"], max_age=7), 20) == []
 
@@ -306,6 +308,7 @@ def test_instaffo_links_are_never_opened(conn, monkeypatch):
     fake = FakeIMAP([INSTAFFO, REMINDER])
     monkeypatch.setattr(ea.mail_drafts, "connect", lambda cfg: fake)
     monkeypatch.setattr(ea.mail_config, "load_alerts_config", lambda: object())
+    monkeypatch.setattr(ea.mail_config, "configured", lambda account: True)
     conn.execute("UPDATE settings SET value = ? WHERE key = 'alert_senders'",
                  (json.dumps([{"board": "instaffo", "from": "notifications@app.instaffo.com"}]),))
     conn.commit()

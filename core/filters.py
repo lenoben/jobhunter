@@ -1,4 +1,4 @@
-"""Search filters: load from DB and seed the defaults from CLAUDE.md §15."""
+"""Search filters: load from DB and seed the starter set (CLAUDE.md §15) or the user's own."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from core.models import SearchFilter
 
 DEFAULT_EXCLUDES = ["Freelance", "Freiberuflich", "Selbstständig", "Senior Principal"]
 
+# IT starter set (the project owner's search); cli.py setup lets a new user enter their own instead.
 DEFAULT_FILTERS: list[tuple[str, list[str]]] = [
     ("Software / Backend", ["Softwareentwickler", "Software Engineer", "Backend Developer",
                             "Full Stack Developer", "Python Developer", "Go Developer"]),
@@ -39,11 +40,13 @@ def insert_filter(conn: sqlite3.Connection, f: SearchFilter) -> int:
     return cur.lastrowid
 
 
-def seed_default_filters(conn: sqlite3.Connection) -> list[str]:
-    """Insert the default filters that don't exist yet (matched by name). Returns names inserted."""
+def seed_default_filters(conn: sqlite3.Connection,
+                         groups: list[tuple[str, list[str]]] | None = None) -> list[str]:
+    """Insert filters that don't exist yet (matched by name): `groups` (the user's own, from
+    cli.py setup) or the IT starter set DEFAULT_FILTERS. Returns the names inserted."""
     existing = {r["name"] for r in conn.execute("SELECT name FROM search_filters")}
     inserted = []
-    for name, keywords in DEFAULT_FILTERS:
+    for name, keywords in DEFAULT_FILTERS if groups is None else groups:
         if name in existing:
             continue
         insert_filter(conn, SearchFilter(
