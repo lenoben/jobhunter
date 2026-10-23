@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { parseCountryList } from '$lib/countries';
 
 	let { data, form } = $props();
 </script>
@@ -67,6 +68,11 @@
 				<label for={key}>{label}</label>
 				<textarea id={key} name={key} rows="5" class="small" style="font-family: ui-monospace, Consolas, monospace"
 					>{JSON.stringify(JSON.parse(data.settings[key] || '[]'), null, 2)}</textarea>
+			</div>
+		{:else if kind === 'countries'}
+			<div>
+				<label for={key}>{label}</label>
+				<input id={key} name={key} type="text" value={parseCountryList(data.settings[key]).join(', ')} style="width: 100%" />
 			</div>
 		{:else if kind === 'bool'}
 			<div class="checks"><label><input type="checkbox" name={key} checked={data.settings[key] === '1'} /> {label}</label></div>

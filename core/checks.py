@@ -76,6 +76,14 @@ WORK_AUTH_PATTERNS = [
     r"no\s+visa\s+sponsorship",
     r"right\s+to\s+work\s+(?:in\s+[\w ]{2,25}?\s+)?without\s+(?:any\s+)?(?:visa\s+)?sponsorship",
     r"unrestricted\s+(?:work(?:ing)?\s+)?(?:authori[sz]ation|permit|right\s+to\s+work)",
+    # US / UK / Canada wording (2026-10-25: the project is shared outside Germany)
+    r"(?:will|do(?:es)?|can)\s*not\s+(?:provide\s+|offer\s+)?(?:visa\s+)?sponsor",
+    r"(?:not\s+able|unable)\s+to\s+(?:provide\s+|offer\s+)?(?:visa\s+)?sponsor",
+    r"(?:authori[sz]ed|eligible)\s+to\s+work\s+in\s+[\w .]{2,25}?\s+without\s+(?:the\s+need\s+for\s+)?"
+    r"(?:(?:visa|employer)\s+)?sponsorship",
+    r"\b(?:u\.?s\.?|us|uk|canadian)\s+citizens?(?:ship)?\s+(?:only|required)",
+    r"must\s+be\s+an?\s+(?:u\.?s\.?|us|uk|british|canadian)\s+citizen",
+    r"green\s+card\s+holders?\s+only",
 ]
 _WORK_AUTH_RE = re.compile("|".join(f"(?:{p})" for p in WORK_AUTH_PATTERNS), re.IGNORECASE)
 

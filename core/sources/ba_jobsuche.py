@@ -28,6 +28,7 @@ def arbeitszeit_param(f: SearchFilter) -> str | None:
 @register
 class BaJobsuche:
     key = "ba_jobsuche"
+    countries = frozenset({"germany"})  # German boards only (core/countries.py)
 
     def __init__(self):
         self.last_errors: list[dict] = []

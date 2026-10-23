@@ -1,6 +1,6 @@
 // Files from output/<job_id>/ (read-only) and the "Run now" launcher.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { Marked } from 'marked';
 import { OUTPUT_DIR, ROOT } from './db';
@@ -29,6 +29,12 @@ export function classifyDocument(name: string): { label: string; kind: DocKind }
 
 export function jobDir(jobId: number): string {
 	return join(OUTPUT_DIR, String(Math.trunc(jobId)));
+}
+
+/** Removes output/<id>/ (PDFs, content.json, notes.md) after the job was deleted. */
+export function deleteJobFiles(jobId: number) {
+	if (!Number.isInteger(jobId) || jobId <= 0) return;
+	rmSync(jobDir(jobId), { recursive: true, force: true });
 }
 
 /** The job's documents: CV, letter, Motivationsschreiben. */

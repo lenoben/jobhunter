@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { getSettings, purgePreview, SETTING_INFO, updateSettings } from '$lib/server/db';
 import { runNow } from '$lib/server/files';
+import { parseCountries } from '$lib/countries';
 import { LAN_ENABLED, lanUrls, newPairingCode, PAIRING_ENABLED } from '$lib/server/access';
 
 export function load({ locals, url }) {
@@ -18,7 +19,14 @@ export const actions = {
 		const f = await request.formData();
 		const values: Record<string, string> = {};
 		const errors: string[] = [];
-		for (const [key, { label, kind, options }] of Object.entries(SETTING_INFO)) {
+		for (const [key, { label, kind, options, optional }] of Object.entries(SETTING_INFO)) {
+			if (kind === 'countries') {
+				const { keys, unknown } = parseCountries(String(f.get(key) ?? ''));
+				if (unknown.length) errors.push(`${label}: unknown ${unknown.join(', ')}`);
+				else if (!keys.length) errors.push(`${label}: name at least one country, remote or worldwide`);
+				values[key] = JSON.stringify(keys);
+				continue;
+			}
 			if (kind === 'choice') {
 				const v = String(f.get(key) ?? '');
 				if (!options!.includes(v)) errors.push(`${label}: choose one of ${options!.join(', ')}`);
@@ -44,7 +52,7 @@ export const actions = {
 			}
 			const raw = String(f.get(key) ?? '').trim().replace(',', '.');
 			if (kind === 'text') {
-				if (!raw) errors.push(`${label} must not be empty`);
+				if (!raw && !optional) errors.push(`${label} must not be empty`);
 				values[key] = raw;
 				continue;
 			}

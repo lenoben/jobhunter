@@ -56,9 +56,19 @@ def send(text: str, conn: sqlite3.Connection | None = None) -> str:
         return f"failed: {e}"
 
 
-def get_chat_ids() -> list[dict]:
-    """For `cli.py telegram-setup`: chats that recently messaged the bot."""
-    token, _ = _config()
+def bot_username(token: str) -> str:
+    """For cli.py setup: checks the token (getMe) and returns the bot's @name."""
+    return _call("getMe", token).get("username") or "your bot"
+
+
+def send_with(token: str, chat_id: str, text: str) -> None:
+    """For cli.py setup: one plain message with a token not yet in .env. Raises RuntimeError."""
+    _call("sendMessage", token, chat_id=chat_id, text=text)
+
+
+def get_chat_ids(token: str | None = None) -> list[dict]:
+    """For `cli.py telegram-setup` and cli.py setup: chats that recently messaged the bot."""
+    token = token or _config()[0]
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not set in .env")
     chats = {}

@@ -20,8 +20,8 @@ from core.profile import ProfileError, load_profile
 server = MCPServer(
     name="jobhunter",
     instructions=(
-        "JobHunter: finds German job postings, stores them in SQLite and prepares application "
-        "documents. Never submit applications or send email (R1). Call is_seen before working on "
+        "JobHunter: finds job postings in the user's target countries, stores them in SQLite and "
+        "prepares application documents. Never submit applications or send email (R1). Call is_seen before working on "
         "any job URL (R8). Only evaluate jobs with status 'new'."
     ),
 )
@@ -109,7 +109,7 @@ def search_jobs(filter_id: int, sources: list[str] | None = None, limit: int | N
             runs.add_counts(conn, run_id, found=r.found, new_jobs=len(r.new))
             # one search per source (and per jobspy site), so the summary can say "2 of 6 filters"
             keys = []
-            for key in sources or f.sources:
+            for key in r.searched:
                 site_list = getattr(SOURCES.get(key), "sites", None)
                 keys += [f"{key}:{s}" for s in site_list] if site_list else [key]
                 if site_list:
@@ -124,6 +124,7 @@ def search_jobs(filter_id: int, sources: list[str] | None = None, limit: int | N
             "too_old": r.too_old,
             "skipped_by_prefilter": len(r.skipped),
             "errors": r.errors,
+            "not_covered": r.not_covered,
             "new_jobs": [{
                 "id": p.id, "title": p.title, "company": p.company, "location": p.location, "url": p.url,
                 "status": p.status, "attention_reason": p.attention_reason,

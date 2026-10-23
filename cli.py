@@ -469,7 +469,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("filters", help="List search filters").set_defaults(func=cmd_filters)
     p = sub.add_parser("search", help="Run a filter against the job sources")
     p.add_argument("--filter", type=int, required=True, help="Filter id (see: cli.py filters)")
-    p.add_argument("--source", choices=["ba_jobsuche", "arbeitnow", "jobspy", "email_alerts"], help="Only this source")
+    p.add_argument("--source", choices=["ba_jobsuche", "arbeitnow", "jobspy", "himalayas", "jobicy", "email_alerts"], help="Only this source")
     p.add_argument("--limit", type=int, default=20, help="Max postings per source (default 20)")
     p.add_argument("--dry-run", action="store_true", help="Search and screen, but store nothing")
     p.set_defaults(func=cmd_search)

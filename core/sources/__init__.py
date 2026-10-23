@@ -5,3 +5,5 @@ from core.sources import ba_jobsuche  # noqa: F401
 from core.sources import arbeitnow  # noqa: F401
 from core.sources import jobspy_source  # noqa: F401
 from core.sources import email_alerts  # noqa: F401
+from core.sources import himalayas  # noqa: F401
+from core.sources import jobicy  # noqa: F401

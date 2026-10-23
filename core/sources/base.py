@@ -24,6 +24,9 @@ class Source(Protocol):
     key: str
     # Per-call errors that did not abort the whole source (e.g. one jobspy site blocked).
     last_errors: list[dict]
+    # Optional class attributes, read with getattr (core/search.py covers()):
+    #   countries: frozenset[str] | None — target countries the source covers (None = all)
+    #   remote_only: bool — only remote jobs, so skipped when the filter doesn't want remote
 
     def search(self, f: SearchFilter, limit: int) -> list[JobPosting]: ...
     def fetch_details(self, job: JobPosting) -> JobPosting: ...
@@ -85,6 +88,46 @@ class PoliteClient:
                 raise SourceError(f"{self.site}: HTTP {r.status_code} for {r.url}")
             return r.json()
         raise SourceError(f"{self.site}: gave up after {self.max_retries + 1} attempts")
+
+
+FEED_MIN_INTERVAL_H = 6  # user decision 2026-10-25
+
+
+class FeedCache:
+    """Responses of public APIs with daily limits (Himalayas, Jobicy), kept on disk in
+    data/cache/<source>/ and reused for FEED_MIN_INTERVAL_H hours: however often runs start (the
+    user may schedule them every few hours, or press Run now), each URL is requested at most once
+    in that window. Jobs already stored are dropped by dedup (R8), so a reused response costs
+    nothing."""
+
+    def __init__(self, source: str, hours: float = FEED_MIN_INTERVAL_H):
+        self.source, self.max_age_s = source, hours * 3600
+        self.hits = 0
+
+    def _dir(self):
+        from core.db import db_path
+        return db_path().parent / "cache" / self.source
+
+    def fetch(self, key: str, load):
+        """The cached value for `key` if younger than the interval, else load() (stored on success)."""
+        import hashlib
+        import json
+        path = self._dir() / f"{hashlib.sha1(key.encode()).hexdigest()[:20]}.json"
+        now = time.time()
+        if path.exists() and now - path.stat().st_mtime < self.max_age_s:
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+                self.hits += 1
+                return value
+            except ValueError:
+                pass
+        value = load()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        for old in path.parent.glob("*.json"):  # keep the folder small
+            if now - old.stat().st_mtime > 2 * 86400:
+                old.unlink(missing_ok=True)
+        return value
 
 
 def _retry_after(r: httpx.Response) -> float | None:

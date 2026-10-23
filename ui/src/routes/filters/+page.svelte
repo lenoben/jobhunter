@@ -28,7 +28,7 @@
 					</td>
 					<td><a href="/filters/{f.id}">{f.name}</a></td>
 					<td class="small">{f.keywords.join(', ')}</td>
-					<td class="hide-sm small">{f.location ? `${f.location} (+${f.radius_km} km)` : 'Germany-wide'}</td>
+					<td class="hide-sm small">{f.location ? `${f.location} (+${f.radius_km} km), ` : ''}{f.where}</td>
 					<td class="hide-sm score">{f.min_fit_score}</td>
 					<td>
 						<form method="POST" action="?/delete" use:enhance={({ cancel }) => {

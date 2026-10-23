@@ -58,6 +58,7 @@ def _in_germany(item: dict) -> bool:
 @register
 class Arbeitnow:
     key = "arbeitnow"
+    countries = frozenset({"germany"})  # German boards only (core/countries.py)
 
     def __init__(self):
         self.last_errors: list[dict] = []

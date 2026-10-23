@@ -1,10 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { cli } from '$lib/server/python';
 import {
-	defaultDocuments, favoriteCount, getSettings, listJobs, notInterested, PAGE_SIZES, requestDocuments, requestedCount, SORTS, SOURCES, STATUSES,
+	defaultDocuments, deleteJob, favoriteCount, getSettings, listJobs, notInterested, PAGE_SIZES, requestDocuments, requestedCount, SORTS, SOURCES, STATUSES,
 	statusCounts, toggleFavorite
 } from '$lib/server/db';
-import { runNow } from '$lib/server/files';
+import { deleteJobFiles, runNow } from '$lib/server/files';
 
 export function load({ url }) {
 	const p = url.searchParams;
@@ -24,6 +24,7 @@ export function load({ url }) {
 	});
 	return {
 		...result,
+		deleted: p.get('deleted') === '1',
 		counts: statusCounts(),
 		requested: requestedCount(),
 		favoriteCount: favoriteCount(),
@@ -55,6 +56,16 @@ export const actions = {
 			return fail(400, { error: (e as Error).message });
 		}
 		return { skipped: j };
+	},
+	/** 🗑 from the list: delete the job and output/<id>/; only with confirm=yes (two-step button). */
+	delete: async ({ request }) => {
+		const f = await request.formData();
+		const j = id(f);
+		if (j === null) return fail(400, { error: 'bad id' });
+		if (f.get('confirm') !== 'yes') return fail(400, { error: 'Delete was not confirmed' });
+		if (!deleteJob(j)) return fail(404, { error: 'Job not found' });
+		deleteJobFiles(j);
+		return { deleted: j };
 	},
 	/** "Apply anyway" / "Write documents" from the list: the default documents (setting) in the next run. */
 	docs: async ({ request }) => {

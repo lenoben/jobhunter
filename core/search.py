@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from typing import Callable
 
-from core import checks, jobs
+from core import checks, countries, jobs
 from core.db import get_settings
 from core.dedup import canonical_url, fingerprint
 from core.models import JobPosting, SearchFilter
@@ -24,6 +24,8 @@ class SearchResult:
     duplicates: int = 0
     too_old: int = 0
     errors: list[dict] = field(default_factory=list)          # [{source, message}]
+    searched: list[str] = field(default_factory=list)         # source keys actually called
+    not_covered: list[str] = field(default_factory=list)      # skipped: wrong countries / no remote
 
 
 def prefilter(p: JobPosting, f: SearchFilter) -> str | None:
@@ -39,9 +41,19 @@ def prefilter(p: JobPosting, f: SearchFilter) -> str | None:
     return None
 
 
+def covers(adapter, f: SearchFilter) -> bool:
+    """Does the source fit the filter's target countries (already resolved) and work modes?
+    E.g. ba_jobsuche only for Germany, Himalayas/Jobicy only when remote work is wanted."""
+    wanted = getattr(adapter, "countries", None)
+    if wanted is not None and not wanted & set(f.countries):
+        return False
+    return not (getattr(adapter, "remote_only", False) and "remote" not in f.work_modes)
+
+
 def run_search(conn: sqlite3.Connection, f: SearchFilter, sources: list[str] | None = None,
                limit: int = 20, dry_run: bool = False, log: Callable[[str], None] = lambda _m: None) -> SearchResult:
     settings = get_settings(conn)
+    f = replace(f, countries=countries.effective(f.countries, settings))
     cutoff = (date.today() - timedelta(days=f.max_age_days)).isoformat()
     result = SearchResult()
     batch_keys: set[str] = set()
@@ -51,6 +63,12 @@ def run_search(conn: sqlite3.Connection, f: SearchFilter, sources: list[str] | N
         if adapter is None:
             result.errors.append({"source": key, "message": "unknown source"})
             continue
+        if not covers(adapter, f):
+            result.not_covered.append(key)
+            log(f"[{key}] skipped: doesn't cover {', '.join(map(countries.label, f.countries))}"
+                + ("" if "remote" in f.work_modes else " / no remote wanted"))
+            continue
+        result.searched.append(key)
         log(f"[{key}] searching …")
         if hasattr(adapter, "dry_run"):
             adapter.dry_run = dry_run  # e.g. email_alerts must not mark mails processed in a dry run
@@ -135,9 +153,12 @@ def store_for_review(conn: sqlite3.Connection, postings: list[JobPosting]) -> li
 def _screen(p: JobPosting, settings: dict[str, str]) -> str | None:
     """Apply §5a checks; sets salary fields and status. Returns a status_history note.
     With the setting work_permit_checks = '0' (e.g. EU citizens) the salary is still read, but
-    nothing is flagged for the Blue Card threshold or work-authorization wording."""
+    nothing is flagged for the Blue Card threshold or work-authorization wording. The Blue Card
+    threshold applies only when Germany is in search_countries."""
     permit = settings.get("work_permit_checks", "1") == "1"
-    threshold = float(settings.get("blue_card_salary_min", "45934.20")) if permit else 0.0
+    # the Blue Card threshold is German law: only when Germany is a target (core/countries.py)
+    blue_card = permit and "germany" in countries.from_setting(settings.get("search_countries"))
+    threshold = float(settings.get("blue_card_salary_min", "45934.20")) if blue_card else 0.0
     salary = checks.check_salary(p.salary_text, threshold)
     p.salary_annual_eur, p.salary_flag = salary.annual_eur, salary.flag
     notes = []

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { label, localTime } from '$lib/format';
+	import ConfirmDelete from '$lib/ConfirmDelete.svelte';
 
 	let { data, form } = $props();
 	const total = $derived(Object.values(data.counts).reduce((a: number, b: number) => a + b, 0));
@@ -49,6 +50,7 @@
 
 {#if form?.error}<div class="flash">{form.error}</div>{/if}
 {#if form?.started}<div class="flash">{form.started}</div>{/if}
+{#if form?.deleted || data.deleted}<div class="flash">Job deleted, with its documents.</div>{/if}
 {#if data.requested > 0}
 	<div class="card row" style="border-color: var(--accent)">
 		<div class="grow"><strong>{data.requested}</strong> job{data.requested === 1 ? '' : 's'} waiting for documents you requested.
@@ -170,6 +172,8 @@
 									<button class="ghost small" title="Not interested: move to skipped">✕</button>
 								</form>
 							{/if}
+							<ConfirmDelete action="?/delete" id={j.id} small
+								question={j.has_docs || CLOSED.includes(j.status) ? 'Delete job + documents?' : 'Delete job?'} />
 						</div>
 					</td>
 				</tr>

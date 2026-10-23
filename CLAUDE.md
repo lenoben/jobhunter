@@ -1,6 +1,7 @@
 # JobHunter — Project Blueprint
 
-A local, open-source job-search assistant for the German market, driven by Claude Code on a
+A local, open-source job-search assistant, built for the German market and usable for any target
+country (core §16a), driven by Claude Code on a
 Claude Pro subscription (no Anthropic API key), or optionally by another OpenAI-compatible LLM
 provider (core §16). It finds jobs, filters and scores them, writes a
 tailored CV + cover letter per job, logs everything in SQLite, notifies via Telegram, and shows
@@ -37,7 +38,7 @@ everything in a localhost web UI. **Applying is always finished by the human.**
 | Part | Choice | Notes |
 |------|--------|-------|
 | Core + MCP server | **Python 3.12**, managed with **uv** | `mcp` package ≥ 2 (`MCPServer` from `mcp.server.mcpserver`; it was called `FastMCP` before 2.0) |
-| Job sources | `httpx` for APIs, `python-jobspy` for scraped boards | Adapter pattern (see §5) |
+| Job sources | `httpx` for APIs, `python-jobspy` for scraped boards | Adapter pattern (see §5); each source declares the target countries it covers (core §16a) |
 | Database | **SQLite**, WAL mode, `foreign_keys=ON` | Single file `data/jobhunter.db` |
 | Migrations | Plain numbered SQL files in `core/migrations/`, applied by `core/db.py` | Python owns the schema |
 | Documents | **Typst** templates → PDF via the `typst` Python package | No LaTeX install needed |
@@ -189,7 +190,8 @@ unrestricted work authorization (§5a phrases), flag `work_authorization`. The p
 
 - `core/CLAUDE.md`: §5 job sources, dedup, §5a screening, §5b email alerts · §6 MCP server notes ·
   §7 documents and cover-letter rules · §8 notifications · §12b–§12f feature additions ·
-  §15 seed-filter notes · §16 shareable setup (setup wizard, LLM providers, mail presets, work permit)
+  §15 seed-filter notes · §16 shareable setup (setup wizard, LLM providers, mail presets, work permit) ·
+  §16a target countries, Himalayas/Jobicy, required Telegram · §16b deleting a job
 - `ui/CLAUDE.md`: §12 web UI
 - Folder layout, the DB schema, the MCP tool list and the CLI commands are read from the code
   (`core/migrations/`, `mcp_server/server.py`, `cli.py --help`).

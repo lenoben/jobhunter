@@ -1,8 +1,13 @@
-"""Indeed (DE), LinkedIn and Glassdoor via python-jobspy (scraping — R6 applies).
+"""Indeed, LinkedIn and Glassdoor via python-jobspy (scraping — R6 applies).
 Google Jobs was removed on 2026-10-15 (user decision): it returned nothing for every filter.
 
 Each site is scraped in its own call so one blocked site (LinkedIn often is) is recorded in
 last_errors and the others still return. Results are kept small (≤ 20 per site per run).
+
+Target countries (2026-10-25, core/countries.py): each country is searched on its own Indeed
+site; Glassdoor only where it has a site (GLASSDOOR); `remote` / `worldwide` use LinkedIn's
+"Worldwide" location only (Indeed and Glassdoor need a country). The per-site limit is shared
+between the countries.
 """
 
 from __future__ import annotations
@@ -10,6 +15,7 @@ from __future__ import annotations
 import math
 import time
 
+from core import countries
 from core.models import JobPosting, SearchFilter
 from core.sources.base import MIN_INTERVAL_S, SourceError, register
 
@@ -19,6 +25,9 @@ MAX_PER_SITE = 20
 # the others get one query per keyword, capped to keep the request count low.
 OR_SITES = {"indeed", "linkedin"}
 MAX_QUERIES_PER_SITE = 2
+GLASSDOOR = {"argentina", "australia", "austria", "belgium", "brazil", "canada", "france", "germany",
+             "hong kong", "india", "ireland", "italy", "malaysia", "mexico", "netherlands", "new zealand",
+             "singapore", "spain", "switzerland", "uk", "usa", "vietnam"}
 _JOB_TYPES = {"fulltime": "full_time", "parttime": "part_time", "internship": "internship",
               "contract": "contract", "temporary": "contract"}
 
@@ -51,50 +60,59 @@ class JobSpySource:
             raise SourceError(f"python-jobspy not installed: {e}") from None
 
         self.last_errors = []
-        per_site = max(1, min(limit, MAX_PER_SITE))
-        location = f.location or "Germany"
+        targets = f.countries or list(countries.DEFAULT)
+        per_site = max(1, math.ceil(min(limit, MAX_PER_SITE) / len(targets)))
         out: dict[str, JobPosting] = {}
         first_call = True
-        for site in self.sites:
-            if site in OR_SITES:
-                queries = [" OR ".join(f'"{k}"' for k in f.keywords)]
-            else:
-                queries = f.keywords[:MAX_QUERIES_PER_SITE]
-            got = 0
-            for q in queries:
-                if got >= per_site:
-                    break
-                if not first_call:
-                    time.sleep(MIN_INTERVAL_S)
-                first_call = False
-                kwargs = dict(
-                    site_name=[site],
-                    search_term=q,
-                    location=location,
-                    results_wanted=per_site - got,
-                    hours_old=f.max_age_days * 24,
-                    country_indeed="germany",
-                    description_format="markdown",
-                    linkedin_fetch_description=True,
-                    verbose=0,
-                )
-                if f.location:
-                    kwargs["distance"] = max(1, round(f.radius_km / 1.609))
-                try:
-                    df = scrape_jobs(**kwargs)
-                except Exception as e:  # jobspy raises many types; a failing site must not stop the run
-                    self.last_errors.append({"source": f"jobspy:{site}", "message": f"{type(e).__name__}: {e}"[:300]})
-                    break
-                for row in df.to_dict("records"):
-                    p = self._to_posting(row, site)
-                    if p and p.url not in out:
-                        out[p.url] = p
-                        got += 1
-            else:
-                if got == 0:  # jobspy only logs blocks (e.g. LinkedIn), so surface them here
-                    self.last_errors.append({"source": f"jobspy:{site}",
-                                             "message": "returned no results (blocked or nothing new)"})
-        if not out and self.last_errors and len(self.last_errors) == len(self.sites):
+        attempted = 0
+        for target in targets:
+            anywhere = target in (countries.REMOTE, countries.WORLDWIDE)
+            sites = ["linkedin"] if anywhere else [s for s in self.sites if s != "glassdoor" or target in GLASSDOOR]
+            where = f" ({countries.label(target)})" if len(targets) > 1 else ""
+            for site in sites:
+                attempted += 1
+                if site in OR_SITES:
+                    queries = [" OR ".join(f'"{k}"' for k in f.keywords)]
+                else:
+                    queries = f.keywords[:MAX_QUERIES_PER_SITE]
+                got = 0
+                for q in queries:
+                    if got >= per_site:
+                        break
+                    if not first_call:
+                        time.sleep(MIN_INTERVAL_S)
+                    first_call = False
+                    kwargs = dict(
+                        site_name=[site],
+                        search_term=q,
+                        location="Worldwide" if anywhere else (f.location or countries.label(target)),
+                        results_wanted=per_site - got,
+                        hours_old=f.max_age_days * 24,
+                        country_indeed="usa" if anywhere else target,
+                        description_format="markdown",
+                        linkedin_fetch_description=True,
+                        verbose=0,
+                    )
+                    if target == countries.REMOTE:
+                        kwargs["is_remote"] = True
+                    if f.location and not anywhere:
+                        kwargs["distance"] = max(1, round(f.radius_km / 1.609))
+                    try:
+                        df = scrape_jobs(**kwargs)
+                    except Exception as e:  # jobspy raises many types; a failing site must not stop the run
+                        self.last_errors.append({"source": f"jobspy:{site}",
+                                                 "message": f"{type(e).__name__}: {e}"[:300] + where})
+                        break
+                    for row in df.to_dict("records"):
+                        p = self._to_posting(row, site)
+                        if p and p.url not in out:
+                            out[p.url] = p
+                            got += 1
+                else:
+                    if got == 0:  # jobspy only logs blocks (e.g. LinkedIn), so surface them here
+                        self.last_errors.append({"source": f"jobspy:{site}",
+                                                 "message": "returned no results (blocked or nothing new)" + where})
+        if not out and self.last_errors and len(self.last_errors) == attempted:
             raise SourceError("all jobspy sites failed: " + "; ".join(e["message"] for e in self.last_errors))
         return list(out.values())
 

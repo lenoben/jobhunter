@@ -13,7 +13,8 @@ export const USER_SETTABLE = STATUSES.filter((s) => s !== 'needs_attention');
 export const WORK_MODES = ['remote', 'hybrid', 'onsite'];
 export const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'minijob', 'working_student', 'internship'];
 export const LANGUAGES = ['de', 'en'];
-export const SOURCES = ['ba_jobsuche', 'arbeitnow', 'jobspy', 'email_alerts'];
+// ba_jobsuche and arbeitnow cover Germany only; himalayas and jobicy remote jobs only (core/search.py covers())
+export const SOURCES = ['ba_jobsuche', 'arbeitnow', 'jobspy', 'himalayas', 'jobicy', 'email_alerts'];
 
 /** Project root = the folder with pyproject.toml, found upward from the working directory. */
 function findRoot(): string {
@@ -280,7 +281,7 @@ export function rejectInferred(jobId: number, note: string | null) {
 
 // ── filters ─────────────────────────────────────────────────────────────────
 
-const JSON_FIELDS = ['keywords', 'exclude_keywords', 'work_modes', 'employment_types', 'languages', 'sources'];
+const JSON_FIELDS = ['keywords', 'exclude_keywords', 'work_modes', 'employment_types', 'languages', 'sources', 'countries'];
 
 export function listFilters() {
 	return (getDb().prepare('SELECT * FROM search_filters ORDER BY id').all() as any[]).map(parseFilter);
@@ -302,6 +303,7 @@ export type FilterInput = {
 	name: string; active: boolean; keywords: string[]; exclude_keywords: string[];
 	location: string | null; radius_km: number; work_modes: string[]; employment_types: string[];
 	exclude_freelance: boolean; languages: string[]; sources: string[]; max_age_days: number; min_fit_score: number;
+	countries: string[]; // [] = the setting search_countries
 };
 
 export function saveFilter(id: number | null, f: FilterInput): number {
@@ -469,11 +471,14 @@ export function listRuns(limit = 100) {
 	}));
 }
 
-export const SETTING_INFO: Record<string, { label: string; kind: 'int' | 'number' | 'bool' | 'text' | 'choice' | 'json'; options?: string[] }> = {
+export const SETTING_INFO: Record<string, {
+	label: string; kind: 'int' | 'number' | 'bool' | 'text' | 'choice' | 'json' | 'countries'; options?: string[]; optional?: boolean;
+}> = {
+	search_countries: { label: 'Target countries for every filter (comma-separated, e.g. usa, uk, remote; a filter can override them)', kind: 'countries' },
 	model_filter: { label: 'Claude Code: model for searching, filtering and scoring', kind: 'choice', options: ['haiku', 'sonnet', 'opus'] },
 	model_writer: { label: 'Claude Code: model for CVs and cover letters', kind: 'choice', options: ['sonnet', 'opus', 'haiku'] },
-	llm_model_filter: { label: 'Other LLM provider (LLM_PROVIDER in .env): model id for searching and scoring', kind: 'text' },
-	llm_model_writer: { label: 'Other LLM provider: model id for CVs and cover letters', kind: 'text' },
+	llm_model_filter: { label: 'Other LLM provider (LLM_PROVIDER in .env): model id for searching and scoring', kind: 'text', optional: true },
+	llm_model_writer: { label: 'Other LLM provider: model id for CVs and cover letters', kind: 'text', optional: true },
 	default_documents: { label: 'Documents to write unless you pick per job (cv = CV only, both = CV + cover letter)', kind: 'choice', options: ['cv', 'both'] },
 	min_fit_for_documents: { label: 'Write documents automatically from fit score', kind: 'int' },
 	max_tailored_per_run: { label: 'Max. jobs tailored per run', kind: 'int' },
@@ -491,12 +496,26 @@ export const SETTING_INFO: Record<string, { label: string; kind: 'int' | 'number
 	followup_after_days: { label: 'Follow-up reminder after … days without a reply (0 = off)', kind: 'int' },
 	followup_no_response_days: { label: '"No reply" reminder after … days (suggests rejected/withdrawn; 0 = off)', kind: 'int' },
 	work_permit_checks: { label: 'I need a work permit: flag jobs below the Blue Card salary or demanding unrestricted work authorization (off = EU citizens)', kind: 'bool' },
-	blue_card_salary_min: { label: 'Blue Card salary threshold (€ gross/year)', kind: 'number' },
+	blue_card_salary_min: { label: 'Blue Card salary threshold (€ gross/year; used only when Germany is a target)', kind: 'number' },
 	blue_card_salary_year: { label: 'Blue Card threshold year', kind: 'int' },
 	ui_base_url: { label: 'UI base URL (links in Telegram)', kind: 'text' },
 	alert_senders: { label: 'Job-alert senders (JSON list of {board, from}; board = linkedin | instaffo | stepstone | xing)', kind: 'json' },
 	alert_folder: { label: 'Mail folder with the job alerts', kind: 'text' }
 };
+
+/** Delete one job for good (user request 2026-10-25). Its application row and history go with it
+ * (ON DELETE CASCADE); the dedup keys stay in deleted_jobs, so no run ever adds it again (R8). The
+ * caller removes output/<id>/ (files.deleteJobFiles). Returns false if the job doesn't exist. */
+export function deleteJob(id: number): boolean {
+	const d = getDb();
+	const job = d.prepare('SELECT canonical_url, fingerprint FROM jobs WHERE id = ?').get(id) as any;
+	if (!job) return false;
+	d.transaction(() => {
+		d.prepare('INSERT OR IGNORE INTO deleted_jobs (canonical_url, fingerprint) VALUES (?, ?)').run(job.canonical_url, job.fingerprint);
+		d.prepare('DELETE FROM jobs WHERE id = ?').run(id);
+	})();
+	return true;
+}
 
 /** How many jobs the automatic clean-up would delete now (mirrors core/jobs.purge_old_jobs). */
 export function purgePreview(): { days: number; count: number } {

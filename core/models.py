@@ -30,19 +30,21 @@ class SearchFilter:
     name: str
     keywords: list[str]
     exclude_keywords: list[str] = field(default_factory=list)
-    location: str | None = None              # None = Germany-wide
+    location: str | None = None              # None = anywhere in the target countries
     radius_km: int = 50
     work_modes: list[str] = field(default_factory=lambda: ["remote", "hybrid", "onsite"])
     employment_types: list[str] = field(default_factory=lambda: ["full_time"])
     exclude_freelance: bool = True
     languages: list[str] = field(default_factory=lambda: ["de", "en"])
-    sources: list[str] = field(default_factory=lambda: ["ba_jobsuche", "arbeitnow", "jobspy", "email_alerts"])
+    sources: list[str] = field(default_factory=lambda: ["ba_jobsuche", "arbeitnow", "jobspy", "himalayas", "jobicy",
+                                                       "email_alerts"])
+    countries: list[str] = field(default_factory=list)  # [] = setting search_countries (core/countries.py)
     max_age_days: int = 7
     min_fit_score: int = 60
     active: bool = True
     id: int | None = None
 
-    _JSON_FIELDS = ("keywords", "exclude_keywords", "work_modes", "employment_types", "languages", "sources")
+    _JSON_FIELDS = ("keywords", "exclude_keywords", "work_modes", "employment_types", "languages", "sources", "countries")
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> SearchFilter:
@@ -69,6 +71,7 @@ class SearchFilter:
             "exclude_freelance": int(self.exclude_freelance),
             "languages": json.dumps(self.languages),
             "sources": json.dumps(self.sources),
+            "countries": json.dumps(self.countries),
             "max_age_days": self.max_age_days,
             "min_fit_score": self.min_fit_score,
         }

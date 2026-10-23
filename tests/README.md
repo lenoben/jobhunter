@@ -155,3 +155,22 @@ Before using the built UI (`npm start`), build it once: `cd ui; npm run build`. 
 **By hand, still to do:**
 - a real run with an OpenAI-compatible provider (e.g. Groq): `LLM_PROVIDER=groq` in `.env`, models via `cli.py setup`, then `.\run.ps1 -Trigger manual`;
 - `run.sh` on Linux/macOS.
+
+## Added 2026-10-25: target countries, remote boards, required Telegram, delete
+
+`uv run pytest -q tests/test_countries.py tests/test_setup.py`
+
+| File · test | Checks |
+|---|---|
+| `test_countries.py` · `test_parse_and_aliases`, `test_effective_countries_filter_overrides_setting` | Names and aliases → keys; a filter's countries replace the setting; no setting → Germany |
+| `test_countries.py` · `test_geo_matches` | Jobicy locations: Anywhere, country lists, regions (EMEA, Europe, LATAM) |
+| `test_countries.py` · `test_covers` | BA/Arbeitnow only for Germany; Himalayas/Jobicy only when remote is wanted |
+| `test_countries.py` · `test_feed_cache_reuses_within_six_hours` | A second fetch within 6 h comes from the cache; after 6 h it is fetched again |
+| `test_countries.py` · `test_himalayas_targets_and_seven_days` | `worldwide=true` and `country=US`, jobs older than 7 days and non-matching titles dropped, the second run from the cache |
+| `test_countries.py` · `test_jobicy_one_download_matched_per_filter` | One download serves several filters; country and age matched locally |
+| `test_countries.py` · `test_jobspy_searches_each_country` | Indeed per country, no Glassdoor where it has no site, LinkedIn "Worldwide" for remote, limit shared |
+| `test_setup.py` (updated + 3 new) | Countries step (menu numbers, unknown names refused), Telegram required: empty and wrong tokens refused, waits for the message, test message sent; a working bot can be kept |
+
+**By hand:**
+- a run with `search_countries` = `["usa", "remote"]` against the real boards;
+- 🗑 Delete in the UI: the confirm step on the list and the job page, then `output/<id>/` is gone.

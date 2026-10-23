@@ -56,9 +56,11 @@ then `evaluate_job`:
   an `apply_url` (where to apply), use `external_ats` or `portal` for that link.
 - Use **skip** for freelance/self-employed (if `exclude_freelance`), an excluded keyword, an
   unwanted employment type or work mode, or a poor fit.
-- `fit_score` (0–100) against the profile: skills, experience level, language, location. Take the
-  user's city from `personal.address`, the language levels from `languages[]`, and their
-  willingness to relocate from `preferences.notes`.
+- `fit_score` (0–100) against the profile: skills, experience level, language, location. A job in one
+  of the user's target countries (`search_countries` in the settings, or the filter's `countries`) or
+  a remote job open to them is not a location gap. Take the user's city from `personal.address`,
+  the language levels from `languages[]`, and their willingness to relocate from
+  `preferences.notes`.
 - `fit_notes`: short Markdown bullets with the match, the gaps, and R9 candidates. Add "Salary not
   stated" if `salary_flag` is `salary_unknown`.
 - `project_suggestions` (R11), for every job with real gaps: 1–3 items

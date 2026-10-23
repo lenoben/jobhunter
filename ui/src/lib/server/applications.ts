@@ -6,7 +6,7 @@ import { loadProfile } from './profile';
 const HOSTS: [RegExp, string][] = [
 	[/linkedin\./, 'LinkedIn'], [/indeed\./, 'Indeed'], [/glassdoor\./, 'Glassdoor'], [/stepstone\./, 'StepStone'],
 	[/xing\./, 'XING'], [/instaffo\./, 'Instaffo'], [/arbeitsagentur\./, 'Jobbörse der Bundesagentur für Arbeit'],
-	[/arbeitnow\./, 'Arbeitnow']
+	[/arbeitnow\./, 'Arbeitnow'], [/himalayas\./, 'Himalayas'], [/jobicy\./, 'Jobicy']
 ];
 
 function host(url: string | null): string | null {
@@ -21,6 +21,8 @@ function host(url: string | null): string | null {
 export function sourceLabel(source: string, url: string | null): string {
 	if (source === 'ba_jobsuche') return 'Jobbörse der Bundesagentur für Arbeit';
 	if (source === 'arbeitnow') return 'Arbeitnow';
+	if (source === 'himalayas') return 'Himalayas';
+	if (source === 'jobicy') return 'Jobicy';
 	const h = host(url) ?? '';
 	const board = HOSTS.find(([re]) => re.test(h))?.[1];
 	if (source === 'email_alerts') return `${board ?? 'Job'}-Alert (E-Mail)`;

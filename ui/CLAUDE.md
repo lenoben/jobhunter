@@ -11,9 +11,9 @@ Part of the JobHunter blueprint (root `CLAUDE.md`, whose hard rules R1–R11 app
 | `/` Jobs | Table: title, company, location, work mode, fit score, status, first seen. Filter by status/source/work mode, search box. "Needs you" count badge in the header. **Pagination**: 50 per page (`?page=N`, page size selectable 25/50/100), with prev/next and "x–y of z". **Sorting**: click a column header (title, company, location, mode, fit, status, first seen) to sort; click again to reverse (`?sort=fit&dir=desc`; a fit score of "none" sorts last). Filters, sort and page stay in the URL. Row buttons: **Apply anyway** (skipped) / **Write docs** (no documents yet) and ✕ Not interested. A banner with **Generate now** appears while requested documents are waiting. |
 | `/jobs/[id]` | Full posting, fit notes, **Project suggestions** (R11: own section from `jobs.project_suggestions`: title, scope, days, requirement covered), status dropdown + note (writes `status_history` with `changed_by='user'`), "Mark as applied" (sets `applied_at`), links to PDFs, `notes.md` rendered, interview prep, history timeline, **Apply kit** panel (§13). Buttons: **Apply anyway** on skipped jobs (→ `shortlisted` + `docs_requested`) and **Write documents** on shortlisted jobs below the threshold (→ `docs_requested`). The next run's writer stage then tailors them even if the fit is below the threshold. Also available as a row button in the Jobs list. |
 | `/attention` | Only `needs_attention` jobs with reasons and what to do. For `inferred_facts`: the list (statement, where, basis) with **Approve** (→ `docs_ready`, sets `applications.inferred_approved_at`, `changed_by='user'`) and **Reject** (back to `shortlisted` for a re-render without them). |
-| `/filters` | List, create, edit, toggle active, delete search filters (all fields in §4). |
+| `/filters` | List, create, edit, toggle active, delete search filters (all fields in §4), incl. `countries` (comma-separated, empty = setting `search_countries`; `ui/src/lib/countries.ts` mirrors `core/countries.py`). |
 | `/runs` | Run history with counts and per-source errors. |
-| `/settings` | `max_tailored_per_run`, `min_hours_between_runs`, Telegram on/off, the models (Claude Code and, for another provider, `llm_model_filter`/`llm_model_writer`), `work_permit_checks` (core §16), "Run now" button (spawns `run.ps1` with trigger `manual`). |
+| `/settings` | `search_countries` (kind `countries`), `max_tailored_per_run`, `min_hours_between_runs`, Telegram on/off, the models (Claude Code and, for another provider, `llm_model_filter`/`llm_model_writer`), `work_permit_checks` (core §16), "Run now" button (spawns `run.ps1` with trigger `manual`). |
 
 Server-side only DB access (`+page.server.ts`, form actions). Serve PDFs through a route that
 only reads from `output/`. Bind to `127.0.0.1` only. Simple, clean design; light/dark mode.
@@ -82,3 +82,10 @@ reachable from the internet and its traffic passes through the tunnel provider.
 free-text field for the user's own notes on the application process (calls, contacts, next steps).
 Saved in `jobs.user_notes` with `user_notes_at` (migration 017) by `db.saveUserNotes`, max 20,000
 characters; an empty field clears them. Never read by Claude or used in the documents.
+
+**Delete a job** (user request 2026-10-25, core §16b): `ConfirmDelete.svelte` is a two-step button
+(no browser dialog, so it works on phones). Used on `/` (row, 🗑) and `/jobs/[id]` (redirects to
+`/?deleted=1`). The actions refuse without `confirm=yes`.
+
+Settings `kind: 'text'` may be `optional` (empty allowed): `llm_model_filter` / `llm_model_writer`
+are empty for Claude Code users and blocked every save before 2026-10-25.

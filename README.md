@@ -1,7 +1,9 @@
 # JobHunter
 
-A local job-search assistant for the German market, driven by **Claude Code** on a Claude
-subscription (no API key), or by any OpenAI-compatible LLM provider such as Groq. Twice a day it searches job boards and your job-alert emails, scores
+A local job-search assistant, driven by **Claude Code** on a Claude subscription (no API key),
+or by any OpenAI-compatible LLM provider such as Groq. Built for the German market, it works for
+any country you choose (USA, UK, Canada, Nigeria, … or remote/worldwide). Twice a day it searches
+job boards and your job-alert emails, scores
 every new posting against your profile, writes a tailored **Lebenslauf + Anschreiben**
 (DIN 5008) or **CV + cover letter**, and reports to Telegram. A local web UI is where you
 review, adjust and apply. **It never submits an application — you always do.**
@@ -11,16 +13,18 @@ review, adjust and apply. **It never submits an application — you always do.**
 ## What it does
 
 - **Finds jobs:**
-  - Bundesagentur für Arbeit (official API), Arbeitnow, and Indeed / LinkedIn / Glassdoor (via
-    python-jobspy);
+  - in **your target countries**: Indeed / LinkedIn / Glassdoor (via python-jobspy, about 70
+    countries), plus Bundesagentur für Arbeit (official API) and Arbeitnow for Germany;
+  - **remote jobs** from Himalayas and Jobicy (official APIs);
   - your **LinkedIn and Instaffo job-alert emails** (read-only IMAP: nothing is marked as read,
     no login to the boards);
   - any link you paste. Public pages, including SmartRecruiters, softgarden and SuccessFactors
     career sites, are read automatically.
 - **Never handles a job twice:** URL canonicalisation plus a company/title/city fingerprint.
-- **Screens deterministically:** if you need a work permit, the salary is compared with the EU
-  Blue Card threshold, and demands such as "unrestricted work authorization" are flagged for you
-  to decide. EU citizens switch this off.
+- **Screens deterministically:** if you need a work permit, demands such as "no visa
+  sponsorship", "US citizens only" or "unbefristete Arbeitserlaubnis" are flagged for you to
+  decide; with Germany as a target, the salary is also compared with the EU Blue Card threshold.
+  People who don't need a permit switch this off.
 - **Two models per run:**
   - a fast one (*Haiku* by default) scores the fit (0–100), classifies the job and suggests
     small projects that would close your gaps;
@@ -37,6 +41,7 @@ review, adjust and apply. **It never submits an application — you always do.**
   - an **Apply kit** with copy buttons and a prompt for the Claude browser extension that never
     clicks submit;
   - search filters and run history;
+  - **🗑 Delete** for a job, with its PDFs and history (asks first);
   - an **Applications** list, exportable as CSV or as a printable German record of your
     applications (Nachweis der Eigenbemühungen) for the Agentur für Arbeit / Jobcenter;
   - a **profile editor**, including your motivation per job category.
@@ -51,15 +56,18 @@ settings. Run it again any time; Enter keeps the current value.
 
 | Choice | Options | Default |
 |---|---|---|
+| **Target countries** | Any of about 70 countries, `remote` (remote jobs in any country) and `worldwide`. Each filter can override the list | Germany |
 | **AI** | `claude-code` (Claude Code on your subscription) or an OpenAI-compatible provider: Groq, OpenAI, OpenRouter, Mistral, a local Ollama, or any custom `/v1` URL. Setup lists the provider's models; you pick one for searching/scoring and one for writing | `claude-code` |
 | **Drafts mailbox** | Any IMAP provider with app passwords (Yahoo, Gmail, GMX, web.de, T-Online, iCloud, or any host), or none | none |
 | **Job-alert mailbox** | The drafts mailbox, a different one (any provider), or none | none |
-| **Telegram** | On or off | off |
-| **Work permit** | On: flag jobs below the Blue Card salary or demanding unrestricted work authorization. Off: EU citizens | on |
+| **Telegram** | Required: the wizard sets up the bot with you and sends a test message | — |
+| **Work permit** | On: flag jobs that rule out visa sponsorship or demand citizenship / unrestricted work authorization, and (Germany only) jobs below the Blue Card salary. Off: you don't need a permit | on |
 | **Search filters** | The IT starter set, or your own job titles (any field) | IT starter set |
 
-The job boards are German (Bundesagentur für Arbeit, Arbeitnow, Indeed/LinkedIn/Glassdoor
-Germany) and the documents follow German conventions (DIN 5008, Lebenslauf), in German or English.
+Which boards a filter searches follows from its countries: Bundesagentur and Arbeitnow only for
+Germany, Indeed/LinkedIn/Glassdoor for each target country, Himalayas and Jobicy whenever the filter
+accepts remote work. Documents are written in the posting's language: German ones follow German
+conventions (DIN 5008, Lebenslauf), all others are English CVs and cover letters.
 
 **Claude Code or another provider?** Claude Code gives the best documents and costs nothing beyond
 your subscription. With another provider, all the safety checks still run, because they live in
@@ -165,10 +173,10 @@ uv sync
 This creates a private Python environment in `.venv\` with everything JobHunter needs, including
 Typst for the PDFs. Nothing is installed system-wide. It takes a minute the first time.
 
-### Step 4: Get your passwords and keys ready (all optional)
+### Step 4: Get your passwords and keys ready
 
-The setup wizard in the next step asks for these, so have them at hand. Skip whatever you don't
-want.
+The setup wizard in the next step asks for these, so have them at hand. Only Telegram is
+required; skip whatever else you don't want.
 
 - **A mailbox for email drafts.** For jobs that apply by email, JobHunter saves a ready email with
   your PDFs as a *draft*; it never sends anything. You need an **app password**, never your
@@ -180,9 +188,11 @@ want.
 - **A mailbox with your job alerts.** If you get LinkedIn or Instaffo job-alert emails,
   JobHunter can read them read-only: nothing is marked as read, deleted or moved. It can be the
   same mailbox as above or a different one, even with a different provider.
-- **Telegram**, for a message after each run: open [@BotFather](https://t.me/BotFather), send
-  `/newbot`, follow the steps and copy the **bot token**. Then send your new bot any message
-  (e.g. "hi"), so it can find your chat.
+- **Telegram (required)**: run summaries, jobs that need you and failed runs arrive there. Install
+  Telegram on your phone and sign in. The wizard then walks you through creating a bot with
+  [@BotFather](https://t.me/BotFather) (`/newbot`, pick a name, copy the **bot token**).
+- **A Himalayas API key** (optional, free at <https://himalayas.app/api>) for the remote-jobs
+  board. Without one, JobHunter uses Himalayas' shared public allowance.
 - **An LLM API key**, only if you chose another provider than Claude Code in Step 1.
 
 ### Step 5: Run the setup wizard
@@ -200,11 +210,12 @@ take it. Passwords and keys are typed hidden and never shown again. What it asks
 | 2. Your files | — | Creates `.env` (your secrets) and `profile/profile.yaml` (your data) from the examples |
 | 3. AI | **Provider** | `1` for `claude-code`, or your provider's number |
 | | **Models** | Claude Code: Enter keeps *haiku* for scoring and *sonnet* for writing. Other providers: the wizard lists the provider's models; pick a **fast, cheap** one for searching/scoring and a **strong** one for writing |
-| 4. Email | **Save application emails as drafts?** | `y`, then the address and the app password; or `n` |
+| 4. Countries | **Countries** | Numbers from the list or names, comma-separated, e.g. `2, 3, remote` for USA, UK and remote jobs. Then the optional Himalayas key |
+| 5. Email | **Save application emails as drafts?** | `y`, then the address and the app password; or `n` |
 | | **Read job alerts from** | the drafts mailbox, another mailbox, or none |
-| 5. Telegram | **Get run summaries on Telegram?** | `y` and the bot token. Leave the chat id empty if you don't know it; Step 7 finds it |
-| 6. Work permit | **Do you need a work permit?** | `y` if you're not an EU citizen: jobs below the EU Blue Card salary or demanding unrestricted work authorization are flagged for you to decide. `n` for EU citizens |
-| 7. Search filters | **Use the IT starter set?** | `y` for software, AI/data, web/app, DevOps, embedded and fintech/health-tech roles. `n` to type your own, one per line, e.g. `Pflege: Pflegefachkraft, Gesundheits- und Krankenpfleger`, then an empty line |
+| 6. Telegram | **Bot token** | Paste the token from @BotFather. The wizard checks it, asks you to send your bot a message, finds your chat by itself and sends a test message. It doesn't continue until that worked |
+| 7. Work permit | **Do you need a work permit?** | `y` if you need a visa or sponsorship where you apply: jobs that rule it out (and, for Germany, jobs below the EU Blue Card salary) are flagged for you to decide. `n` if you don't (e.g. citizens) |
+| 8. Search filters | **Use the IT starter set?** | `y` for software, AI/data, web/app, DevOps, embedded and fintech/health-tech roles. `n` to type your own, one per line, e.g. `Nursing: Registered Nurse, Pflegefachkraft`, then an empty line |
 
 The mail server is found from your address (`@gmail.com`, `@yahoo.com`, `@gmx.de`, `@web.de`,
 `@t-online.de`, `@icloud.com`). For any other address the wizard asks for the IMAP host.
@@ -245,8 +256,7 @@ didn't set up.
 uv run python cli.py render-test                  # sample CVs and letters → output\_render-test\
 uv run python cli.py mail-test                    # logs in to the drafts mailbox, finds the Drafts folder
 uv run python cli.py mail-test --account alerts   # logs in to the job-alert mailbox (read-only)
-uv run python cli.py telegram-setup               # prints your chat id → TELEGRAM_CHAT_ID in .env
-uv run python cli.py telegram-test                # sends a test message
+uv run python cli.py telegram-test                # sends a test message (the wizard already did once)
 ```
 
 `mail-test --create` also saves one draft called *JobHunter test* to your own address, so you
@@ -384,12 +394,12 @@ has the flag, a folder named `Draft` (Yahoo), `Drafts` or `Entwürfe` (GMX, web.
 
 | Command | Does |
 |---------|------|
-| `setup` | Guided setup: AI provider and models, mailboxes, Telegram, work permit, search filters. Safe to run again |
+| `setup` | Guided setup: AI provider and models, target countries, mailboxes, Telegram (required), work permit, search filters. Safe to run again |
 | `agent --stage S [--trigger T] [--job N]` | One run stage with another LLM provider (used by `run.ps1`/`run.sh`) |
 | `init-db` | Creates `data/jobhunter.db` (WAL mode) and applies pending migrations from `core/migrations/` |
 | `seed-filters` | Inserts the default search filters (skips ones that already exist by name) and lists them |
 | `filters` | Lists all search filters |
-| `search --filter N [--source S] [--limit 20] [--dry-run]` | Runs one filter against the sources (`ba_jobsuche`, `arbeitnow`, `jobspy`), drops jobs already seen, screens salary and work-authorization wording, stores new jobs. `--dry-run` stores nothing. |
+| `search --filter N [--source S] [--limit 20] [--dry-run]` | Runs one filter against the sources that cover its countries (`ba_jobsuche`, `arbeitnow`, `jobspy`, `himalayas`, `jobicy`, `email_alerts`), drops jobs already seen, screens salary and work-authorization wording, stores new jobs. `--dry-run` stores nothing. |
 | `telegram-setup` / `telegram-test` | Print your chat id after you messaged the bot / send a test message |
 | `notify-failure [--reason R] [--log L]` | Used by `run.ps1`: marks open runs as failed and sends "🛑 Run failed" |
 | `check-run --since "YYYY-MM-DD HH:MM:SS"` | Used by `run.ps1`: exit 1 if a run started since then never finished |
@@ -437,17 +447,21 @@ npm start            # http://localhost:5173 (local only)
   now*, Haiku scores it right away, and Sonnet writes the documents if it meets your threshold.
 - **Jobs:** filter and search; click a column header to sort (click again to reverse, e.g. by
   fit score); 25/50/100 per page. Row buttons: **Apply anyway** for skipped jobs, **Write docs**
-  for jobs without documents, and ✕ **Not interested**. While requested documents are waiting,
+  for jobs without documents, ✕ **Not interested**, and 🗑 **Delete** (asks *Delete job?* first). While requested documents are waiting,
   a **Generate now** button writes them right away instead of in the next scheduled run.
 - **Job page:** full posting, fit notes, **project suggestions** for the gaps, PDFs, `notes.md`
-  and interview prep, a status dropdown with a note, **Mark as applied**, and the history. Under
+  and interview prep, a status dropdown with a note, **Mark as applied**, the history, and 🗑 **Delete**: after you confirm, it removes the job,
+  its PDFs (`output/<id>/`) and its history for good. A deleted job is never added again by a
+  run; email drafts already in your mailbox stay. Under
   **Full posting** you can paste the complete ad (alert emails only contain the title), then
   **Save & evaluate now**. You can
   request **CV only, cover letter only, or both**, for the next run or **Generate now**.
 - **Needs you:** approve or reject inferred facts, and resolve flagged jobs.
-- **Filters:** create, edit, switch on/off and delete.
+- **Filters:** create, edit, switch on/off and delete. Each filter can have its own
+  **countries** (empty = the default from Settings).
 - **Runs:** the run history.
-- **Settings:** limits, models, Telegram on/off, the work-permit checks and Blue Card threshold, and **Run now**.
+- **Settings:** target countries, limits, models, Telegram on/off, the work-permit checks and
+  Blue Card threshold, and **Run now**.
 
 <p>
   <img src="docs/jobhunter_3.jpeg" width="49%" alt="A job page: status, documents to download or write again, where to apply, fit notes and the Apply kit">
@@ -488,12 +502,10 @@ Devices on networks not listed are always refused. To sign out every device, cha
 
 ## Scheduled runs and Telegram
 
-1. **Telegram:**
-   - Create a bot with [@BotFather](https://t.me/BotFather) and put the token into
-     `TELEGRAM_BOT_TOKEN`.
-   - Send the bot any message, then run `uv run python cli.py telegram-setup` and put the printed
-     id into `TELEGRAM_CHAT_ID`.
-   - Check it with `cli.py telegram-test`.
+1. **Telegram** is set up by `cli.py setup`. By hand: create a bot with
+   [@BotFather](https://t.me/BotFather), put the token into `TELEGRAM_BOT_TOKEN`, send the bot any
+   message, run `uv run python cli.py telegram-setup`, put the printed id into
+   `TELEGRAM_CHAT_ID`, and check with `cli.py telegram-test`.
 2. **Manual run:** `.\run.ps1 -Trigger manual`. `.\run.ps1 -Trigger docs` writes only the requested documents. Claude works headless with only the JobHunter
    tools. Logs go to `logs/run_<time>_<trigger>.log`.
 3. **Schedule:** `.\setup-task.ps1` registers the task **JobHunter**. It runs daily at 08:00 and
@@ -526,16 +538,27 @@ one Telegram message with the counts, failed sources and the jobs that need you.
 | Key | Boards | Notes |
 |-----|--------|-------|
 | `ba_jobsuche` | Bundesagentur für Arbeit | Official API. Germany only. Salary is rarely given. |
+| `himalayas` | [Himalayas](https://himalayas.app) remote jobs | Official API. Remote jobs open to your target countries (or worldwide), **last 7 days only**. Up to 3 keywords per filter and country, 20 per page. Optional free key `HIMALAYAS_API_KEY`. Each query is cached for **6 hours**. |
+| `jobicy` | [Jobicy](https://jobicy.com) remote jobs | Official API. One feed of the last 7 days, downloaded at most every **6 hours** and matched to every filter locally (keywords; country or region such as *Europe*, *EMEA*, *Anywhere*). |
 | `arbeitnow` | Arbeitnow | Public API; one shared feed, matched to filters locally. Only jobs from the German site (arbeitnow.com) are kept; .co.uk/.fr/.ch/.nl and foreign locations are dropped. |
 | `email_alerts` | Your LinkedIn job-alert emails (StepStone/XING prepared) | Reads the ALERTS mailbox **read-only**: nothing is marked as read, no LinkedIn login, no requests to LinkedIn. Each mail is processed once. Only jobs matching a filter's keywords are stored. Senders and folder are editable in Settings. |
-| `jobspy` | Indeed DE, LinkedIn, Glassdoor | Scraped, max 20 per site per run, 3 s between requests. LinkedIn often blocks; that is recorded as an error and the other sites continue. (Google Jobs was removed: it never returned results.) |
+| `jobspy` | Indeed, LinkedIn, Glassdoor | Scraped, for each target country (Indeed's site of that country; Glassdoor where it exists; `remote`/`worldwide` = LinkedIn "Worldwide"). Max 20 per site per filter, shared between the countries, 3 s between requests. LinkedIn often blocks; that is recorded as an error and the other sites continue. (Google Jobs was removed: it never returned results.) |
 
-Each new job is screened before it is stored:
-- **Salary:** converted to gross EUR per year (upper value of a range) and compared to the EU Blue
-  Card threshold in the `blue_card_salary_min` setting (45,934.20 € for 2026). Below → *needs
+A source that doesn't cover a filter's countries is skipped, not counted as an error
+(Bundesagentur and Arbeitnow: Germany only; Himalayas and Jobicy: only filters that accept remote
+work).
+
+Himalayas and Jobicy ask to be named as the source and to keep their apply links, and they
+forbid passing their jobs on to other job boards. JobHunter shows them as the source, keeps their
+links and keeps the jobs on your PC, so use it for your own job search only.
+
+Each new job is screened before it is stored (when the work-permit checks are on):
+- **Salary** (only with Germany as a target): converted to gross EUR per year (upper value of a
+  range) and compared to the EU Blue Card threshold in the `blue_card_salary_min` setting (45,934.20 € for 2026). Below → *needs
   attention*. No salary → `salary_unknown` (informational only).
 - **Work authorization:** ads asking for e.g. *unbefristete Arbeitserlaubnis*,
-  *EU-Staatsbürgerschaft* or *no visa sponsorship* → *needs attention*, so you answer those yourself.
+  *EU-Staatsbürgerschaft*, *no visa sponsorship*, *will not sponsor*, *US citizens only* or
+  *authorized to work … without sponsorship* → *needs attention*, so you answer those yourself.
 
 ## Where things live
 
@@ -545,7 +568,8 @@ Each new job is screened before it is stored:
 | `data/jobhunter.db` | Jobs, applications, filters, runs | no |
 | `output/<job_id>/` | Generated PDFs and notes | no |
 | `logs/` | One log per run | no |
-| `.env` | Telegram token, SEND and ALERTS mail app passwords | no |
+| `.env` | Telegram token, SEND and ALERTS mail app passwords, LLM and Himalayas keys | no |
+| `data/cache/` | Himalayas and Jobicy responses, reused for 6 hours | no |
 
 ## Schema changes
 

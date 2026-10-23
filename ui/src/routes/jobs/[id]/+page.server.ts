@@ -1,9 +1,9 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import {
 	approveInferred, defaultDocuments, DOC_CHOICES, flagWorkAuthorization, followupState, getApplication, getHistory, getJob, getSettings,
-	markApplied, notInterested, rejectInferred, requestDocuments, saveUserNotes, setStatus, toggleFavorite, USER_SETTABLE
+	deleteJob, markApplied, notInterested, rejectInferred, requestDocuments, saveUserNotes, setStatus, toggleFavorite, USER_SETTABLE
 } from '$lib/server/db';
-import { listDocuments, markdown, notesHtml, runNow } from '$lib/server/files';
+import { deleteJobFiles, listDocuments, markdown, notesHtml, runNow } from '$lib/server/files';
 import { buildKit } from '$lib/server/kit';
 import { cli } from '$lib/server/python';
 
@@ -62,6 +62,14 @@ export const actions = {
 	skip: async ({ params, request }) => {
 		const { note } = await form(request);
 		return run(() => notInterested(jobId(params), note));
+	},
+	/** Delete the job and output/<id>/; only with confirm=yes from the two-step button. */
+	delete: async ({ params, request }) => {
+		if ((await request.formData()).get('confirm') !== 'yes') return fail(400, { error: 'Delete was not confirmed' });
+		const id = jobId(params);
+		if (!deleteJob(id)) return fail(404, { error: 'Job not found' });
+		deleteJobFiles(id);
+		redirect(303, '/?deleted=1');
 	},
 	/** "Apply anyway" / "Write documents" (CV, cover letter or both). now=1 → "Generate now". */
 	docs: async ({ params, request }) => {

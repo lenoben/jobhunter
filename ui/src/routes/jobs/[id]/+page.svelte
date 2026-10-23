@@ -3,6 +3,7 @@
 	import { ATTENTION_HELP, label, localTime } from '$lib/format';
 	import InferredFacts from '$lib/InferredFacts.svelte';
 	import CopyButton from '$lib/CopyButton.svelte';
+	import ConfirmDelete from '$lib/ConfirmDelete.svelte';
 
 	let { data, form } = $props();
 	const job = $derived(data.job);
@@ -69,6 +70,9 @@
 			<form method="POST" action="?/skip" use:enhance><button class="secondary">Not interested</button></form>
 		{/if}
 		{#if app?.applied_at}<span class="muted small">Applied {localTime(app.applied_at)}</span>{/if}
+		<span class="grow"></span>
+		<ConfirmDelete action="?/delete"
+			question={`Delete this job${data.documents?.length ? `, its ${data.documents.length} document(s)` : ''} and its history for good?${app?.applied_at ? ' It also leaves your Applications list.' : ''} Email drafts in your mailbox stay.`} />
 	</div>
 </div>
 

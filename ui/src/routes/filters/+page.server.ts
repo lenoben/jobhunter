@@ -1,8 +1,15 @@
 import { fail } from '@sveltejs/kit';
-import { deleteFilter, listFilters, toggleFilter } from '$lib/server/db';
+import { deleteFilter, getSettings, listFilters, toggleFilter } from '$lib/server/db';
+import { countryLabel, parseCountryList } from '$lib/countries';
 
 export function load() {
-	return { filters: listFilters() };
+	const fallback = parseCountryList(getSettings().search_countries);
+	return {
+		filters: listFilters().map((f) => ({
+			...f,
+			where: (f.countries.length ? f.countries : fallback.length ? fallback : ['germany']).map(countryLabel).join(', ')
+		}))
+	};
 }
 
 async function id(request: Request) {

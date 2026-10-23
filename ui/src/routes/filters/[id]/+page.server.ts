@@ -1,12 +1,13 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import {
-	EMPLOYMENT_TYPES, getFilter, LANGUAGES, saveFilter, SOURCES, WORK_MODES, type FilterInput
+	EMPLOYMENT_TYPES, getFilter, getSettings, LANGUAGES, saveFilter, SOURCES, WORK_MODES, type FilterInput
 } from '$lib/server/db';
+import { countryLabel, parseCountries, parseCountryList } from '$lib/countries';
 
 const DEFAULTS = {
 	id: null, name: '', active: true, keywords: [], exclude_keywords: ['Freelance', 'Freiberuflich', 'Selbstständig', 'Senior Principal'],
 	location: null, radius_km: 50, work_modes: ['remote', 'hybrid', 'onsite'], employment_types: ['full_time'],
-	exclude_freelance: true, languages: ['de', 'en'], sources: [...SOURCES], max_age_days: 7, min_fit_score: 60
+	exclude_freelance: true, languages: ['de', 'en'], sources: [...SOURCES], max_age_days: 7, min_fit_score: 60, countries: []
 };
 
 function parseId(param: string): number | null {
@@ -20,7 +21,8 @@ export function load({ params }) {
 	const id = parseId(params.id);
 	const filter = id === null ? DEFAULTS : getFilter(id);
 	if (!filter) error(404, 'Filter not found');
-	return { filter, options: { WORK_MODES, EMPLOYMENT_TYPES, LANGUAGES, SOURCES } };
+	const defaultCountries = parseCountryList(getSettings().search_countries).map(countryLabel).join(', ') || 'Germany';
+	return { filter, defaultCountries, options: { WORK_MODES, EMPLOYMENT_TYPES, LANGUAGES, SOURCES } };
 }
 
 const list = (v: FormDataEntryValue | null) =>
@@ -51,8 +53,12 @@ export const actions = {
 			languages: pick('languages', LANGUAGES),
 			sources: pick('sources', SOURCES),
 			max_age_days: int(f, 'max_age_days', 1, 100, errors),
-			min_fit_score: int(f, 'min_fit_score', 0, 100, errors)
+			min_fit_score: int(f, 'min_fit_score', 0, 100, errors),
+			countries: []
 		};
+		const countries = parseCountries(String(f.get('countries') ?? ''));
+		if (countries.unknown.length) errors.push(`Unknown countries: ${countries.unknown.join(', ')}`);
+		input.countries = countries.keys;
 		if (!input.name) errors.push('Name is required');
 		if (!input.keywords.length) errors.push('At least one keyword is required');
 		for (const k of ['work_modes', 'employment_types', 'languages', 'sources'] as const) {

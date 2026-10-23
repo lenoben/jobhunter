@@ -35,9 +35,15 @@
 		<textarea id="exclude_keywords" name="exclude_keywords" style="min-height: 2.6rem">{f.exclude_keywords.join(', ')}</textarea>
 	</div>
 
+	<div>
+		<label for="countries">Countries (empty = your default: {data.defaultCountries})</label>
+		<input id="countries" type="text" name="countries" value={(f.countries ?? []).join(', ')} placeholder="e.g. usa, uk, remote" style="width: 100%" />
+		<p class="muted small" style="margin: 0.2rem 0 0">Comma-separated: country names, <code>remote</code> (remote jobs in any country) or <code>worldwide</code>. Sources that don't cover them are skipped: Bundesagentur and Arbeitnow are Germany only; Himalayas and Jobicy are remote jobs only.</p>
+	</div>
+
 	<div class="row">
 		<div class="grow">
-			<label for="location">Location (empty = Germany-wide)</label>
+			<label for="location">City (empty = anywhere in the countries; best with one country)</label>
 			<input id="location" type="text" name="location" value={f.location ?? ''} style="width: 100%" />
 		</div>
 		<div>

@@ -7,7 +7,8 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from core import applications, jobs
+from core import applications, countries, jobs
+from core.db import get_settings
 
 DOC_LABELS = {("cv", "de"): "Lebenslauf", ("cv", "en"): "CV", ("cv", None): "CV / Lebenslauf",
               ("letter", "de"): "Anschreiben", ("letter", "en"): "Cover letter",
@@ -30,7 +31,9 @@ def build_kit(conn: sqlite3.Connection, job_id: int, profile: dict) -> dict:
     p = profile.get("personal") or {}
     addr = p.get("address") or {}
     av = profile.get("availability") or {}
-    lang = job.get("language") or "de"
+    # unknown posting language: German only when Germany is a target (core/countries.py)
+    targets = countries.from_setting(get_settings(conn).get("search_countries"))
+    lang = job.get("language") or ("de" if "germany" in targets else "en")
     name = (p.get("name") or "").strip()
     first, _, last = name.rpartition(" ")
 

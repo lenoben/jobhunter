@@ -24,10 +24,11 @@ in Python (or by Claude for `work_mode`).
 |-----|----------|------|-------|
 | `ba_jobsuche` | Bundesagentur für Arbeit | Public REST API | Base `https://rest.arbeitsagentur.de/jobboerse/jobsuche-service`, header `X-API-Key: jobboerse-jobsuche`. Params include `was`, `wo`, `umkreis`, `angebotsart=1`, `arbeitszeit` (`vz`, `tz`, `ho` = Homeoffice, `mj` = Minijob …), `veroeffentlichtseit`, `page`, `size`. **Verify endpoints and params against the community docs (github.com/bundesAPI/jobsuche-api) before coding — they change.** Verified live 2026-10-15: search `/pc/v6/jobs` (v4 → 403), details `/pc/v4/jobdetails/{base64(referenznummer)}`. Germany-wide filters send `wo=Deutschland`, otherwise BA mixes in Austrian EURES jobs. |
 | `arbeitnow` | Arbeitnow | Public JSON API | `https://www.arbeitnow.com/api/job-board-api`, paginated via `links.next`; has a `remote` flag and `tags`. Filter keywords/location client-side. |
-| `jobspy` | Indeed (DE), LinkedIn, Glassdoor | **Scraping** via `python-jobspy` | `scrape_jobs(site_name=[…], search_term=…, location=…, country_indeed="germany", hours_old=…, results_wanted=…, linkedin_fetch_description=True)`. Keep `results_wanted` small (≤20/site/run). LinkedIn is the most likely to block — treat its failure as normal. Google Jobs was removed (user decision 2026-10-15): it returned nothing for every filter. |
+| `jobspy` | Indeed, LinkedIn, Glassdoor | **Scraping** via `python-jobspy` | Per target country (§16a): `scrape_jobs(site_name=[…], search_term=…, location=…, country_indeed=<country>, hours_old=…, results_wanted=…, linkedin_fetch_description=True)`. Keep `results_wanted` small (≤20/site/run). LinkedIn is the most likely to block — treat its failure as normal. Google Jobs was removed (user decision 2026-10-15): it returned nothing for every filter. |
 
-Also built: `email_alerts` (job-alert emails, §5b, Phase 9). Planned later (same interface): RemoteOK (API),
-We Work Remotely (RSS), Berlin Startup Jobs, Get in IT, and a `manual` source where the user
+Also built: `email_alerts` (job-alert emails, §5b, Phase 9), `himalayas` and `jobicy` (remote jobs, §16a).
+Remotive and Remote OK were tested on 2026-10-25 and left out: Remotive's free API had 10 jobs in
+total, Remote OK 99 mostly old ones. Planned later (same interface): We Work Remotely (RSS), Berlin Startup Jobs, Get in IT, and a `manual` source where the user
 pastes a URL in the UI.
 
 ### Deduplication (`core/dedup.py`)
@@ -602,3 +603,52 @@ failing; with no account at all, `email_alerts` finds nothing. The Drafts fallba
 **Seed filters:** `seed_default_filters(conn, groups)` takes the user's own groups;
 `DEFAULT_FILTERS` is now the "IT starter set".
 
+## 16a. Target countries, remote boards, required Telegram (2026-10-25, user request)
+
+The project is shared with people outside Germany (USA, UK, Canada, Africa, remote, …).
+
+**Countries** (`core/countries.py`, migration 019):
+- Keys are python-jobspy's country names (`usa`, `uk`, `south africa`, …) plus `remote` (remote
+  jobs in any country) and `worldwide` (any location, incl. on-site abroad). `parse()` accepts
+  aliases ("United States", "US", "Deutschland").
+- The setting `search_countries` (JSON list, default `["germany"]`, so existing installs don't
+  change) is the default for every filter. `search_filters.countries` (non-empty) replaces it for
+  that filter. Both are editable in the UI; `cli.py setup` asks for the global list.
+- `run_search` resolves the filter's countries first, then skips every source that doesn't cover
+  them (`search.covers`, logged, not an error; listed as `not_covered` by `search_jobs`):
+  - adapter `countries` = the targets it covers (`ba_jobsuche`, `arbeitnow`: `{"germany"}`;
+    None = all);
+  - adapter `remote_only` (`himalayas`, `jobicy`): skipped when the filter doesn't accept remote.
+- jobspy runs per country: that country's Indeed site, Glassdoor only where it has one
+  (`GLASSDOOR`), and LinkedIn "Worldwide" for `remote`/`worldwide` (`is_remote` for remote). The
+  per-site limit is shared between the countries.
+- §5a: the Blue Card threshold applies only with Germany in `search_countries`. The
+  work-authorization phrases now include US/UK/Canada wording ("will not sponsor", "US citizens
+  only", "authorized to work … without sponsorship").
+- The apply kit's default language for a job with unknown posting language is German only with
+  Germany as a target, else English.
+
+**Remote boards** (official APIs, terms: name the board as the source, keep its apply link, never
+pass the jobs on to other boards; JobHunter is for personal use):
+- `himalayas`: search endpoint, `q` = up to 3 keywords, `country=<ISO-2>` per country target,
+  `worldwide=true` for `remote`/`worldwide`, `sort=recent`, 2 pages of 20. Only jobs from the last
+  **7 days** (user, 2026-10-25), or fewer per `max_age_days`. Optional `HIMALAYAS_API_KEY` in .env
+  (Bearer); without it the shared public allowance.
+- `jobicy`: one feed of the last 7 days (≤ 3 pages of 200), matched to every filter locally:
+  keywords, then `countries.geo_matches` (country, region such as Europe/EMEA/LATAM, or Anywhere).
+- Both go through `FeedCache` (`core/sources/base.py`): each URL is fetched at most once every
+  **6 hours** (user decision; `data/cache/<source>/`), however often runs start.
+
+**Telegram is required** in `cli.py setup`: it checks the token (`getMe`), waits until the user has
+messaged the bot, finds the chat id (`getUpdates`), and only continues after a test message went
+through (`notify.send_with`). A working saved bot can be kept. Notifications themselves are
+unchanged (the `telegram_enabled` switch still exists).
+
+## 16b. Deleting a job (2026-10-25, user request)
+
+🗑 on the Jobs list and the job page. The first click only asks ("Delete job?" / on the job page
+with the document count and a note when it was applied); "Yes, delete" sends `confirm=yes`,
+which the server actions require. `db.deleteJob` stores the dedup keys in `deleted_jobs` (so no run
+adds the job again, R8) and deletes the row; the application and `status_history` go with it
+(ON DELETE CASCADE). `files.deleteJobFiles` then removes `output/<id>/`. Email drafts already in the
+mailbox are not touched.
