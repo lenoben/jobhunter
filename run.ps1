@@ -36,6 +36,7 @@ function Get-Model([string]$key, [string]$default) {
 
 $provider = (uv run python cli.py llm-provider 2>$null | Select-Object -Last 1)
 if (-not $provider) { $provider = 'claude-code' }
+$engine = if ($provider -eq 'claude-code') { 'claude' } else { $provider }   # named in failure messages
 
 function Invoke-Stage([string]$stage, [string]$model) {
     if ($provider -ne 'claude-code') {
@@ -80,11 +81,11 @@ if ($Trigger -eq 'single') {
     if ($JobId -le 0) { Write-Log "-Trigger single needs -JobId"; exit 2 }
     $code = Invoke-Stage 'single' (Get-Model 'model_filter' 'haiku')
     if ($code -ne 0) {
-        Send-Failure "single-job run (job $JobId): claude exited with code $code"
+        Send-Failure "single-job run (job $JobId): $engine exited with code $code"
     } elseif (Test-RunOpen) {
         $code = Invoke-Stage 'single-write' (Get-Model 'model_writer' 'sonnet')
         if ($code -ne 0) {
-            Send-Failure "single-job run (job $JobId), writer: claude exited with code $code"
+            Send-Failure "single-job run (job $JobId), writer: $engine exited with code $code"
         } elseif (Test-RunOpen) {
             Send-Failure "the single-job run (job $JobId) stopped before finish_run"
             $code = 1
@@ -97,7 +98,7 @@ if ($Trigger -eq 'docs') {
     # Writer only: the stage starts its own "docs" run, writes the requested documents, finishes it.
     $code = Invoke-Stage 'docs' (Get-Model 'model_writer' 'sonnet')
     if ($code -ne 0) {
-        Send-Failure "documents run: claude exited with code $code"
+        Send-Failure "documents run: $engine exited with code $code"
     } elseif (Test-RunOpen) {
         Send-Failure "the documents run stopped before finish_run"
         $code = 1
@@ -116,12 +117,12 @@ $stage1 = if ($Trigger -eq 'evaluate') { 'evaluate' } else { 'filter' }
 $code = Invoke-Stage $stage1 (Get-Model 'model_filter' 'haiku')
 
 if ($code -ne 0) {
-    Send-Failure "$stage1 stage: claude exited with code $code"
+    Send-Failure "$stage1 stage: $engine exited with code $code"
 } elseif (Test-RunOpen) {
     # Stage 1 left the run open, as it should: the writer stage continues it and calls finish_run.
     $code = Invoke-Stage 'write' (Get-Model 'model_writer' 'sonnet')
     if ($code -ne 0) {
-        Send-Failure "writer stage: claude exited with code $code (evaluations from the filter stage are kept)"
+        Send-Failure "writer stage: $engine exited with code $code (evaluations from the filter stage are kept)"
     } elseif (Test-RunOpen) {
         Send-Failure "the writer stage stopped before finish_run"
         $code = 1

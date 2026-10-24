@@ -174,6 +174,17 @@ def test_notification_toggles(conn, sent):
     assert sent[-1]["text"] == "⏸ Generate now couldn't start: run 3 is still running"
 
 
+def test_run_failed_names_the_cause_from_the_log(conn, sent, tmp_path):
+    log = tmp_path / "run.log"
+    log.write_text("[t] stage 'filter' started (provider: groq)\n"
+                   "Error: LLM_PROVIDER is groq, but no model is set for the filter stage (setting llm_model_filter).\n"
+                   "[t] stage 'filter' exited with code 1\n", encoding="utf-8")
+    assert notify.notify_run_failed(conn, "filter stage: groq exited with code 1", str(log)) == "sent"
+    assert "<b>Cause:</b> LLM_PROVIDER is groq, but no model is set" in sent[-1]["text"]
+    notify.notify_run_failed(conn, "boom", str(tmp_path / "missing.log"))
+    assert "Cause" not in sent[-1]["text"]                       # no log line: the message stays as before
+
+
 # ── where to apply: link, email and postal address together (2026-10-22) ────
 
 def test_text_naming_link_and_email_keeps_both(conn):

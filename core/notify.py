@@ -212,10 +212,27 @@ def notify_run_finished(conn: sqlite3.Connection, run: dict, summary: str) -> st
     return send(text, conn) if text else "nothing to send"
 
 
+def log_error(log_file: str | None) -> str:
+    """The last `Error: …` line a stage wrote to the run log (cli.py agent prints its setup errors
+    that way, e.g. a provider without a model), so the failure message says what to fix."""
+    if not log_file:
+        return ""
+    path = ROOT / log_file if not os.path.isabs(log_file) else log_file
+    try:
+        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    except OSError:
+        return ""
+    errors = [ln[len("Error: "):].strip() for ln in lines if ln.startswith("Error: ")]
+    return errors[-1][:300] if errors else ""
+
+
 def notify_run_failed(conn: sqlite3.Connection | None, reason: str, log_file: str | None = None) -> str:
     if not enabled(conn, "notify_failures"):
         return "disabled"
     text = f"🛑 Run failed: {_e(reason)}" + (f" — see {_e(log_file)}" if log_file else "")
+    cause = log_error(log_file)
+    if cause:
+        text += f"\n<b>Cause:</b> {_e(cause)}"
     return send(text, conn)
 
 

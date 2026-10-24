@@ -86,7 +86,10 @@ def stage_model(settings: dict[str, str], stage: str) -> str:
     key = "llm_model_writer" if stage in WRITER_STAGES else "llm_model_filter"
     model = (settings.get(key) or "").strip()
     if not model:
-        raise RuntimeError(f"setting {key} is empty: run `uv run python cli.py setup` or set it in /settings")
+        raise RuntimeError(
+            f"LLM_PROVIDER is {provider_name()}, but no model is set for the {stage} stage (setting {key}). "
+            "Pick one with `uv run python cli.py setup` or in /settings, "
+            "or set LLM_PROVIDER=claude-code in .env to run on Claude Code")
     return model
 
 
