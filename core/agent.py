@@ -6,7 +6,7 @@ gets, and every guard lives in those tools as before: is_seen (R8), the R9 refus
 checks, "drafts only, never send" (R1). The instructions are the job-hunt skill itself.
 
 .env (R3: the key lives only there):
-    LLM_PROVIDER = claude-code (default: run.ps1 uses `claude -p`) | groq | openai | openrouter |
+    LLM_PROVIDER = claude-code (default: run.ps1 uses `claude -p`) | groq | gemini | openai | openrouter |
                    mistral | ollama | custom
     LLM_API_KEY  = the provider's key (not needed for ollama)
     LLM_BASE_URL = only for custom, or to override a preset
@@ -36,6 +36,7 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     "openai": ("https://api.openai.com/v1", "https://platform.openai.com/api-keys"),
     "openrouter": ("https://openrouter.ai/api/v1", "https://openrouter.ai/keys"),
     "mistral": ("https://api.mistral.ai/v1", "https://console.mistral.ai/api-keys"),
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "https://aistudio.google.com/apikey"),
     "ollama": ("http://localhost:11434/v1", ""),
 }
 SKILL = ROOT / ".claude" / "skills" / "job-hunt" / "SKILL.md"
@@ -80,6 +81,22 @@ def list_models(cfg: LLMConfig) -> list[str]:
     r = httpx.get(f"{cfg.base_url}/models", headers=_headers(cfg), timeout=30)
     r.raise_for_status()
     return sorted(m["id"] for m in r.json().get("data", []) if m.get("id"))
+
+
+def describe_error(e: Exception) -> str:
+    """A short, key-free reason for a failed provider request, with a hint for the usual causes."""
+    if not isinstance(e, httpx.HTTPStatusError):
+        return type(e).__name__
+    r = e.response
+    try:
+        body = r.json()
+        body = body[0] if isinstance(body, list) and body else body  # Gemini wraps the error in a list
+        msg = ((body.get("error") or {}).get("message") or "")[:300]
+    except (ValueError, AttributeError):
+        msg = r.text[:200]
+    hint = {401: "the API key is wrong or revoked",
+            403: "the provider blocks this network (VPN, proxy or region): try without the VPN"}.get(r.status_code)
+    return f"HTTP {r.status_code}" + (f": {msg}" if msg else "") + (f" ({hint})" if hint else "")
 
 
 def stage_model(settings: dict[str, str], stage: str) -> str:
@@ -151,7 +168,8 @@ def chat(client: httpx.Client, cfg: LLMConfig, payload: dict, log: Callable[[str
             if r.status_code < 400:
                 return r.json()
             if r.status_code not in (429, 500, 502, 503, 504):
-                raise RuntimeError(f"{cfg.provider}: HTTP {r.status_code}: {r.text[:300]}")
+                raise RuntimeError(f"{cfg.provider}: "
+                                   + describe_error(httpx.HTTPStatusError("", request=r.request, response=r)))
             wait = float(r.headers.get("retry-after") or 0) or min(60, 2 ** (attempt + 1))
             why = f"HTTP {r.status_code}"
         log(f"{why}, waiting {wait:.0f}s")
@@ -183,7 +201,7 @@ async def run_stage(trigger: str, stage: str, job_id: int = 0, log: Callable[[st
         mcp_tools = (await session.list_tools()).tools
         tools = [{"type": "function", "function": {
             "name": t.name, "description": (t.description or "")[:1024],
-            "parameters": t.inputSchema or {"type": "object", "properties": {}}}} for t in mcp_tools] + [READ_TOOL]
+            "parameters": t.input_schema or {"type": "object", "properties": {}}}} for t in mcp_tools] + [READ_TOOL]
         messages: list[dict] = [{"role": "system", "content": system_prompt()},
                                 {"role": "user", "content": stage_prompt(trigger, stage, job_id)}]
         usage = {"prompt_tokens": 0, "completion_tokens": 0}
@@ -211,7 +229,7 @@ async def run_stage(trigger: str, stage: str, job_id: int = 0, log: Callable[[st
                         else:
                             res = await session.call_tool(name, args)
                             text = "\n".join(getattr(c, "text", "") for c in res.content)
-                            if res.isError:
+                            if res.is_error:
                                 text = "ERROR: " + text
                     except json.JSONDecodeError:
                         text = "ERROR: arguments were not valid JSON"
@@ -226,8 +244,14 @@ async def run_stage(trigger: str, stage: str, job_id: int = 0, log: Callable[[st
 
 
 def main(trigger: str, stage: str, job_id: int = 0) -> int:
+    code = 1
     try:
-        return asyncio.run(run_stage(trigger, stage, job_id))
-    except RuntimeError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+        code = asyncio.run(run_stage(trigger, stage, job_id))
+    except* RuntimeError as group:  # errors inside the MCP session arrive wrapped in an ExceptionGroup
+        for e in _leaves(group):
+            print(f"Error: {e}", file=sys.stderr)
+    return code
+
+
+def _leaves(e: BaseException) -> list[BaseException]:
+    return [x for sub in e.exceptions for x in _leaves(sub)] if isinstance(e, BaseExceptionGroup) else [e]

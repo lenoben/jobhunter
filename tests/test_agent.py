@@ -75,3 +75,27 @@ def test_chat_fails_fast_on_bad_request():
     with httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(400, text="bad model"))) as client:
         with pytest.raises(RuntimeError, match="HTTP 400"):
             agent.chat(client, cfg, {}, log=lambda m: None)
+
+
+def test_chat_names_a_blocked_network():
+    """Groq answers 403 'Access denied' from VPN/datacenter IPs, with or without a key (2026-10-26)."""
+    blocked = httpx.Response(403, json={"error": {"message": "Access denied. Please check your network settings."}})
+    cfg = agent.LLMConfig("groq", "https://api.example/v1", "k")
+    with httpx.Client(transport=httpx.MockTransport(lambda r: blocked)) as client:
+        with pytest.raises(RuntimeError, match=r"groq: HTTP 403: Access denied.*VPN"):
+            agent.chat(client, cfg, {}, log=lambda m: None)
+
+
+def test_main_prints_errors_from_inside_the_mcp_session(monkeypatch, capsys):
+    """A provider error inside the MCP task group arrives as an ExceptionGroup (2026-10-26)."""
+    async def failing(*a):
+        raise ExceptionGroup("tg", [ExceptionGroup("inner", [RuntimeError("gemini: HTTP 404: gone")])])
+
+    monkeypatch.setattr(agent, "run_stage", failing)
+    assert agent.main("manual", "filter") == 1
+    assert "Error: gemini: HTTP 404: gone" in capsys.readouterr().err
+
+
+def test_describe_error_reads_geminis_list_body():
+    r = httpx.Response(404, json=[{"error": {"message": "model retired"}}], request=httpx.Request("GET", "https://x"))
+    assert agent.describe_error(httpx.HTTPStatusError("", request=r.request, response=r)) == "HTTP 404: model retired"

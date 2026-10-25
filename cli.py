@@ -451,10 +451,14 @@ def _print_filters(conn) -> None:
     if not filters:
         print("No filters yet. Run: uv run python cli.py seed-filters")
         return
-    print(f"\n{'id':>3}  {'active':6}  {'name':24}  {'location':14}  keywords")
+    import json
+
+    from core import countries
+    default = json.loads(db.get_settings(conn).get("search_countries") or "[]") or countries.DEFAULT
+    print(f"\n{'id':>3}  {'active':6}  {'name':24}  {'where':24}  keywords")
     for f in filters:
-        print(f"{f.id:>3}  {'yes' if f.active else 'no':6}  {f.name:24}  "
-              f"{(f.location or 'Germany-wide'):14}  {', '.join(f.keywords)}")
+        where = f.location or ", ".join(countries.label(c) for c in (f.countries or default))
+        print(f"{f.id:>3}  {'yes' if f.active else 'no':6}  {f.name:24}  {where:24}  {', '.join(f.keywords)}")
 
 
 def main(argv: list[str] | None = None) -> int:

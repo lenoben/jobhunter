@@ -125,3 +125,20 @@ def test_countries_rejects_unknown_names(home):
     env, settings = setup.ask_countries(s.wizard(), {}, {})
     assert settings == {"search_countries": '["uk", "usa"]'}
     assert any("Unknown: Atlantis" in line for line in s.out)
+
+
+def test_model_list_failure_is_explained_and_a_model_is_required(home, monkeypatch):
+    """Setup used to accept an empty model when /models failed, so every run then stopped (2026-10-26)."""
+    import httpx
+
+    def blocked(cfg):
+        r = httpx.Response(403, json={"error": {"message": "Access denied."}},
+                           request=httpx.Request("GET", "https://api.example/v1/models"))
+        raise httpx.HTTPStatusError("403", request=r.request, response=r)
+
+    monkeypatch.setattr(setup.agent, "list_models", blocked)
+    s = Script(answers=["groq", "", "small-model", "big-model"], secrets=["gsk_test"])
+    _, settings = setup.ask_llm(s.wizard(), {}, {})
+    assert settings == {"llm_model_filter": "small-model", "llm_model_writer": "big-model"}
+    out = "\n".join(s.out)
+    assert "HTTP 403: Access denied." in out and "VPN" in out and "A model id is required" in out

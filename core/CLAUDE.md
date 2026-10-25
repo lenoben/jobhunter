@@ -314,7 +314,7 @@ in JSON — Claude only produces content.
 | Run finished | `🔎 Run 08:02 — 23 found · 6 new · 4 docs ready · 2 need you` |
 | Needs attention | `⚠️ <b>Backend Developer (m/w/d)</b> – Company, City: needs_login` + UI link |
 | Source error | `❌ linkedin failed this run (others OK)`, only when the source gave nothing in **all** its searches. Otherwise `⚠️ linkedin: no results for 2 of 6 filters` (soft) or `⚠️ ba_jobsuche: errors in 1 of 6 filters`. Migration 008 `runs.source_searches` counts searches per source; errors carry their `filter_id`. Run status: `partial` only for a real error or a source that failed completely; a few "no results" keep it `ok` |
-| Run failed | `🛑 Run failed: <short reason> — see logs/<file>` |
+| Run failed | `🛑 Run failed: <short reason> — see logs/<file>`, plus `Cause: …` from the last `Error: ` line in the log (2026-10-26, e.g. a provider without a model). The reason names the engine (`claude` or the `LLM_PROVIDER`) |
 
 Telegram failures must never fail a run; log and continue.
 
@@ -580,7 +580,7 @@ failing; with no account at all, `email_alerts` finds nothing. The Drafts fallba
 `Entwürfe` (GMX, web.de, T-Online).
 
 **Other LLM providers** (`core/agent.py`):
-- `.env`: `LLM_PROVIDER` (`claude-code` default | groq | openai | openrouter | mistral | ollama |
+- `.env`: `LLM_PROVIDER` (`claude-code` default | groq | gemini | openai | openrouter | mistral | ollama |
   custom), `LLM_API_KEY`, and `LLM_BASE_URL` (custom, or to override a preset).
 - Settings `llm_model_filter` / `llm_model_writer` hold the model ids. Setup lists them from the
   provider's `GET /models`; they are never hard-coded because they change too often.

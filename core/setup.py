@@ -141,14 +141,19 @@ def ask_llm(w: Wizard, env: dict[str, str], settings: dict[str, str]) -> tuple[d
         models = agent.list_models(cfg)
         w.say(f"  {len(models)} models available.")
     except Exception as e:
-        w.say(f"  couldn't list the models ({type(e).__name__}); type the model ids yourself")
+        w.say(f"  couldn't list the models: {agent.describe_error(e)}")
+        w.say("  Runs will fail the same way until that is fixed. Type the model ids yourself for now.")
         models = []
     w.say("  Pick a fast, cheap model for searching/scoring and a strong one for writing.")
     for key, label in (("llm_model_filter", "Model for searching and scoring"),
                        ("llm_model_writer", "Model for CVs and letters")):
         current_model = settings.get(key, "")
-        out_settings[key] = (w.choose(label, models, current_model if current_model in models else models[0])
-                             if models else w.ask(label, current_model))
+        if models:
+            out_settings[key] = w.choose(label, models, current_model if current_model in models else models[0])
+            continue
+        while not (answer := w.ask(label, current_model)):  # an empty model makes every run fail
+            w.say("  A model id is required (see the provider's model list).")
+        out_settings[key] = answer
     return out_env, out_settings
 
 
