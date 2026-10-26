@@ -10,7 +10,9 @@
 		{ label: 'Documents written', value: sum('docs'), sub: range },
 		{ label: 'Applied', value: sum('applied'), sub: range },
 		{ label: 'Feedback received', value: sum('feedback'), sub: range },
-		{ label: 'Interviews / offers', value: sum('interview'), sub: range }
+		{ label: 'Interviews / offers', value: sum('interview'), sub: range },
+		{ label: 'Rejected', value: sum('rejected_only'), sub: range },
+		{ label: 'Withdrawn', value: sum('withdrawn'), sub: range }
 	]);
 	// one small chart per status (same time axis; each has its own scale) — in pipeline order
 	const STEPS: [string, string][] = [
@@ -28,6 +30,8 @@
 		['Feedback received', data.counts.feedback ?? 0, '/?status=feedback'],
 		['Interview',data.counts.interview ?? 0, '/?status=interview'],
 		['Offer', data.counts.offer ?? 0, '/?status=offer'],
+		['Rejected', data.counts.rejected ?? 0, '/?status=rejected'],
+		['Withdrawn', data.counts.withdrawn ?? 0, '/?status=withdrawn'],
 		['Needs you', data.counts.needs_attention ?? 0, '/attention']
 	] as [string, number, string][]);
 </script>
