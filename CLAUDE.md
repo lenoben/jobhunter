@@ -13,6 +13,50 @@ everything in a localhost web UI. **Applying is always finished by the human.**
 
 ---
 
+## 0. Start here (new session)
+
+**What it is:** a local job-search assistant (author **lenoben**, `github.com/lenoben/jobhunt`,
+website `www.lenoben.top`, MIT license — a license change is on hold). The owner uses it
+in Germany (Claude Code on a Pro subscription, Yahoo mail, Telegram) and shares it with
+others (any country, any OpenAI-compatible LLM; core §16/§16a).
+
+**Pipeline:** Windows Task Scheduler → `run.ps1` → stage *filter* (search all active filters →
+dedup R8 → §5a screening → the model scores each new job) → stage *write* (the model tailors
+CV/letter for jobs ≥ `min_fit_for_documents` or requested; Typst PDFs; email draft) →
+`finish_run` → one structured Telegram message. Every job, status change and run is in SQLite;
+the SvelteKit UI shows and edits it all. The human always submits (R1).
+
+**Where things are:**
+| Path | What |
+|---|---|
+| `core/` | Python logic: `db.py` + `migrations/` (schema, now 020), `search.py` + `sources/` (adapters), `checks.py` (§5a), `jobs.py` (status, evaluation, document selection), `docs.py` (rendering + checks), `notify.py` (Telegram), `runs.py`, `recruiters.py`, `reminders.py`, `followups.py`, `manual.py` (add job by link), `agent.py` (non-Claude LLM loop), `setup.py` (wizard), `countries.py`, `mail_*.py` |
+| `mcp_server/server.py` | The MCP tools the runs use (guards live here and in `core/`) |
+| `.claude/skills/job-hunt/SKILL.md` | The run workflow (stages filter / write / docs / evaluate / single / single-write) |
+| `.claude/skills/apply-assist/SKILL.md` | Interactive form filling, never submits |
+| `cli.py` | Every command (`uv run python cli.py --help`); the UI calls it for logic that lives in Python |
+| `ui/` | SvelteKit app; all SQL in `ui/src/lib/server/db.ts`; Python calls via `lib/server/python.ts` |
+| `templates/` | Typst templates + example JSON for each document |
+| `run.ps1`, `run.sh`, `setup-task.ps1` | Runs and scheduling (tasks **JobHunter** 08:00/18:00 and **JobHunter reminders** every 15 min) |
+| `profile/`, `data/`, `output/`, `logs/`, `.env` | The user's private data (gitignored; R3/R4) — never print `.env` |
+| `tests/` | pytest, offline (fake HTTP/IMAP/Telegram, temp DBs); `tests/README.md` lists what each covers |
+
+**Working on it:**
+- Tests: `.venv/Scripts/python.exe -m pytest -q` (≈ 250 tests, ~1.5 min). UI type check:
+  `cd ui; npx svelte-check --threshold error`. The user's UI usually runs on
+  `http://127.0.0.1:5173` (dev server, hot reload). Don't run `npm run build` unasked.
+- A new migration: add `core/migrations/0NN_*.sql`, then `cli.py init-db` applies it (runs also do).
+  The UI never migrates; it reads the same DB.
+- The user decides features from a short numbered plan; small fixes go straight in. Commit only
+  when asked (then end with the Co-Authored-By line), **never push**; otherwise suggest a commit
+  message. Keep `core/CLAUDE.md` / `ui/CLAUDE.md` up to date with every feature (dated section).
+- Shell: Git Bash on Windows. Python heredocs with tabs/quotes in bash break easily — write
+  helper scripts to the scratchpad with the Write tool and run them with `.venv/Scripts/python.exe`.
+- Feature history, newest last: core §12b–§12f (2026-10-16…22), §16 shareable setup and other
+  LLM providers (10-25), §16a countries + remote boards (10-25), §16b delete (10-25), §16c
+  recruiters, reminders, structured Telegram, author credit in the UI (10-28).
+
+---
+
 ---
 
 ## 1. Hard rules (never break these)
@@ -94,6 +138,8 @@ Registers task `JobHunter`: daily triggers 08:00 and 18:00, `-StartWhenAvailable
 the PC was off), `-WakeToRun`, `-RunOnlyIfNetworkAvailable`, `-ExecutionTimeLimit 2h`, runs as
 the current user only when logged on. Idempotent (re-running updates the task).
 `min_hours_between_runs` in the DB is the second guard against double runs.
+Since 2026-10-28 it also registers **JobHunter reminders**: every 15 minutes
+`.venv\Scripts\pythonw.exe cli.py reminders --notify` (job reminders, core §16c; no LLM).
 
 ---
 
@@ -109,10 +155,13 @@ Workflow Claude follows on every scheduled run:
    - skip if freelance/self-employed and `exclude_freelance`, if it matches `exclude_keywords`,
      if the employment type isn't wanted, or if `fit_score < min_fit_score`;
    - if `salary_flag = salary_unknown`, mention it in `fit_notes`;
-   - otherwise `shortlist`.
+   - otherwise `shortlist`;
+   - a posting by a recruiting agency / for an unnamed client → `via_recruiter` + reason (core §16c).
    (Jobs already flagged `needs_attention` by the §5a checks in `search_jobs` are not evaluated.)
 5. Take `list_jobs("shortlisted", for_documents=true)` up to `max_tailored_per_run`: jobs with
    `fit_score ≥ min_fit_for_documents` (setting, default **60**) or `docs_requested` by the user.
+   Jobs via a recruiter (core §16c) only when `docs_requested` — enforced in `list_jobs` and
+   `render_documents`.
    Write the documents the job's `documents` field asks for (the CV only by default, setting
    `default_documents`; the user can pick CV + letter per job) → `render_documents` → `save_application`.
    If `apply_method = email` and `apply_email` exists → `save_email_draft`.
@@ -191,7 +240,8 @@ unrestricted work authorization (§5a phrases), flag `work_authorization`. The p
 - `core/CLAUDE.md`: §5 job sources, dedup, §5a screening, §5b email alerts · §6 MCP server notes ·
   §7 documents and cover-letter rules · §8 notifications · §12b–§12f feature additions ·
   §15 seed-filter notes · §16 shareable setup (setup wizard, LLM providers, mail presets, work permit) ·
-  §16a target countries, Himalayas/Jobicy, required Telegram · §16b deleting a job
+  §16a target countries, Himalayas/Jobicy, required Telegram · §16b deleting a job ·
+  §16c recruiters (documents only on request), job reminders, structured run message
 - `ui/CLAUDE.md`: §12 web UI
 - Folder layout, the DB schema, the MCP tool list and the CLI commands are read from the code
   (`core/migrations/`, `mcp_server/server.py`, `cli.py --help`).

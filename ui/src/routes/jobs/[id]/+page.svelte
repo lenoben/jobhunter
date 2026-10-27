@@ -10,6 +10,18 @@
 	const app = $derived(data.application);
 	const pending = $derived(job.status === 'needs_attention' && job.attention_reason === 'inferred_facts');
 	const closed = $derived(['skipped', 'applied', 'feedback', 'interview', 'offer', 'rejected', 'withdrawn'].includes(job.status));
+	const viaRecruiter = $derived(job.via_recruiter === 'list' || job.via_recruiter === 'detected');
+	const reminderPending = $derived(!!job.remind_at && !job.reminded_at);
+	// the reminder form: the saved one, else tomorrow 09:00 (local time)
+	const tomorrow = new Date(Date.now() + 86_400_000);
+	const pad = (n: number) => String(n).padStart(2, '0');
+	const remindDate = $derived(job.remind_at?.slice(0, 10) ?? `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`);
+	const remindTime = $derived(job.remind_at?.slice(11, 16) ?? '09:00');
+	function when(at: string) {
+		const [d, t] = at.split(' ');
+		const [y, m, day] = d.split('-');
+		return `${day}.${m}.${y}, ${t}`;
+	}
 </script>
 
 <svelte:head><title>{job.title} · JobHunter</title></svelte:head>
@@ -22,6 +34,12 @@
 	</form>
 	<span>{job.title}</span>
 </h1>
+{#if viaRecruiter || reminderPending}
+	<p class="row" style="gap: 0.4rem; margin: -0.6rem 0 0.6rem">
+		{#if viaRecruiter}<a class="tag recruiter" href="#recruiter">🤝 Via a recruiter</a>{/if}
+		{#if reminderPending}<a class="tag reminder" href="#reminder">⏰ {when(job.remind_at)}</a>{/if}
+	</p>
+{/if}
 <p class="muted">
 	{job.company ?? '–'} · {job.location ?? '–'} · {job.work_mode ?? 'work mode unknown'}
 	{#if job.employment_type}· {label(job.employment_type)}{/if}
@@ -74,6 +92,56 @@
 		<ConfirmDelete action="?/delete"
 			question={`Delete this job${data.documents?.length ? `, its ${data.documents.length} document(s)` : ''} and its history for good?${app?.applied_at ? ' It also leaves your Applications list.' : ''} Email drafts in your mailbox stay.`} />
 	</div>
+</div>
+
+{#if form?.recruiterAdded}<div class="flash">{form.recruiterAdded}</div>{/if}
+{#if form?.recruiterCleared}<div class="flash">Marked as not a recruiter. The job counts like any other again.</div>{/if}
+{#if viaRecruiter}
+	<div class="card recruiter-card" id="recruiter">
+		<div class="row" style="align-items: flex-start">
+			<div class="grow">
+				<h2 style="margin: 0 0 0.3rem">🤝 Via a recruiter: no automatic documents</h2>
+				<p class="small" style="margin: 0">
+					{#if job.via_recruiter === 'list'}
+						<strong>{job.company}</strong> is on your <a href="/recruiters">recruiter list</a>{data.recruiter ? ` (as “${data.recruiter.names[0]}”)` : ''}.
+					{:else}
+						The scoring model read this from the posting: <em>{job.recruiter_reason ?? 'recruiter'}</em>.
+					{/if}
+					Runs never write documents for it on their own; pick them under <a href="#documents">Documents</a> if you want to apply.
+				</p>
+			</div>
+		</div>
+		<div class="row" style="margin-top: 0.6rem">
+			{#if job.via_recruiter === 'detected' && job.company}
+				<form method="POST" action="?/addrecruiter" use:enhance><button class="secondary">Add “{job.company}” to my recruiter list</button></form>
+			{/if}
+			<form method="POST" action="?/notrecruiter" use:enhance>
+				<button class="secondary" title="Remove the badge: the job counts like any other again">✕ Not a recruiter</button>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<div class="card" id="reminder">
+	<h2 style="margin-top: 0">⏰ Reminder</h2>
+	{#if form?.reminderSaved}<div class="flash">{form.reminderSaved}</div>{/if}
+	{#if reminderPending}
+		<p class="small" style="margin-top: 0">Telegram reminds you on <strong>{when(job.remind_at)}</strong>{job.remind_note ? `: “${job.remind_note}”` : ''}.
+			The message has this job, its JobHunter link and where to apply.</p>
+	{:else if job.reminded_at && job.remind_at}
+		<p class="small muted" style="margin-top: 0">The reminder for {when(job.remind_at)} was sent. Set a new one:</p>
+	{:else}
+		<p class="small muted" style="margin-top: 0">Get a Telegram message to check on this job, e.g. a deadline or the day you expect an answer.</p>
+	{/if}
+	<form method="POST" action="?/remind" use:enhance={() => async ({ update }) => update({ reset: false })} class="row remind-form">
+		<input type="date" name="date" value={remindDate} required aria-label="Date" />
+		<input type="time" name="time" value={remindTime} required aria-label="Time" />
+		<input type="text" name="note" maxlength="500" value={job.remind_note ?? ''} placeholder="What to check (optional)" class="grow" />
+		<button>{reminderPending ? 'Change' : 'Set reminder'}</button>
+	</form>
+	{#if reminderPending}
+		<form method="POST" action="?/unremind" use:enhance style="margin-top: 0.4rem"><button class="ghost small">Remove reminder</button></form>
+	{/if}
 </div>
 
 <div class="card" id="my-notes">
@@ -135,7 +203,7 @@
 	</div>
 {/if}
 
-<div class="card">
+<div class="card" id="documents">
 	<h2 style="margin-top: 0">Documents</h2>
 	{#if form?.started}<div class="flash">{form.started}</div>{/if}
 	{#if form?.requested}<div class="flash">Requested. The next run writes them, or press "Generate now".</div>{/if}
@@ -145,6 +213,7 @@
 				{#if job.docs_requested}✍️ Requested: <strong>{data.docChoices[job.docs_requested]}</strong>. Change:
 				{:else if data.documents.length}Write again:
 				{:else if job.status === 'skipped'}Skipped, but you can still apply:
+				{:else if viaRecruiter}🤝 Via a recruiter, so no automatic documents. Write them anyway:
 				{:else if (job.fit_score ?? 0) < data.docThreshold}Fit below {data.docThreshold}, so no automatic documents. Write them anyway:
 				{:else}Write documents:{/if}
 			</span>
@@ -179,6 +248,12 @@
 		· Apply via: {job.apply_method ?? '?'}
 		· Source: {job.source} · Posted: {job.posted_at ?? '?'} · First seen: {localTime(job.first_seen_at)}
 	</p>
+	{#if !viaRecruiter && job.company && job.via_recruiter !== 'cleared'}
+		<form method="POST" action="?/addrecruiter" use:enhance class="row small" style="margin-bottom: 0.4rem">
+			<span class="muted">Is “{job.company}” a recruiting agency?</span>
+			<button class="ghost small" title="Adds it to your recruiter list and tags all its jobs">🤝 Add to my recruiter list</button>
+		</form>
+	{/if}
 	{#if form?.applySaved}<div class="flash">{form.applySaved}</div>{/if}
 	<h2>Where to apply</h2>
 	{#if job.apply_url || job.apply_email || job.apply_address}
@@ -327,6 +402,8 @@
 	.place { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
 	.place a { overflow-wrap: anywhere; }
 	.address { white-space: pre-line; }
+	.recruiter-card { border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); background: color-mix(in srgb, var(--warn) 5%, var(--surface)); }
+	.remind-form input[type='text'] { flex: 1 1 14rem; }
 	.user-notes { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
 	.apply-form { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem 0.7rem; align-items: center; margin-top: 0.5rem; }
 	.apply-form label[for='apply-address'] { align-self: start; padding-top: 0.3rem; }

@@ -1,7 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import {
 	approveInferred, defaultDocuments, DOC_CHOICES, flagWorkAuthorization, followupState, getApplication, getHistory, getJob, getSettings,
-	deleteJob, markApplied, notInterested, rejectInferred, requestDocuments, saveUserNotes, setStatus, toggleFavorite, USER_SETTABLE
+	clearReminder, deleteJob, listRecruiters, markApplied, markRecruiterSeen, notInterested, rejectInferred, requestDocuments, saveUserNotes,
+	setReminder, setStatus, toggleFavorite, USER_SETTABLE
 } from '$lib/server/db';
 import { deleteJobFiles, listDocuments, markdown, notesHtml, runNow } from '$lib/server/files';
 import { buildKit } from '$lib/server/kit';
@@ -17,8 +18,10 @@ export function load({ params, url }) {
 	const id = jobId(params);
 	const job = getJob(id);
 	if (!job) error(404, 'Job not found');
+	markRecruiterSeen(id); // the 🤝 count in the menu only counts jobs not opened yet
 	return {
 		job,
+		recruiter: job.recruiter_id ? listRecruiters().find((r) => r.id === job.recruiter_id) ?? null : null,
 		application: getApplication(id),
 		history: getHistory(id),
 		documents: listDocuments(id),
@@ -135,6 +138,31 @@ export const actions = {
 		const { note } = await form(request);
 		return run(() => flagWorkAuthorization(jobId(params), note));
 	},
+	/** 🤝 "Not a recruiter": the job counts like any other again and is never tagged again. */
+	notrecruiter: async ({ params }) => {
+		const r = cli(['recruiters', 'clear-job', '--job', String(jobId(params))]);
+		if (r.error) return fail(400, { error: r.error });
+		return { ok: true, recruiterCleared: true };
+	},
+	/** Put this job's company on the recruiter list: tags all its stored jobs at once. */
+	addrecruiter: async ({ params }) => {
+		const job = getJob(jobId(params));
+		if (!job?.company) return fail(400, { error: 'This job has no company name to add.' });
+		const r = cli(['recruiters', 'add', '--name', job.company]);
+		if (r.error) return fail(400, { error: r.error });
+		return { ok: true, recruiterAdded: `${r.names[0]} is on your recruiter list; ${r.tagged.length} job(s) tagged.` };
+	},
+	/** ⏰ Reminder: date + time (local) and a note; sent via Telegram (cli.py reminders, every 15 min). */
+	remind: async ({ params, request }) => {
+		const f = await request.formData();
+		try {
+			const r = setReminder(jobId(params), `${f.get('date') ?? ''} ${f.get('time') ?? ''}`, String(f.get('note') ?? ''));
+			return { ok: true, reminderSaved: r.past ? 'Saved. That time has passed, so it goes out within 15 minutes.' : 'Reminder saved.' };
+		} catch (e) {
+			return fail(400, { error: (e as Error).message });
+		}
+	},
+	unremind: async ({ params }) => run(() => clearReminder(jobId(params))),
 	approve: async ({ params }) => run(() => approveInferred(jobId(params))),
 	reject: async ({ params, request }) => {
 		const { note } = await form(request);

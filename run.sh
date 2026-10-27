@@ -4,6 +4,7 @@
 # Stages: filter (model_filter) → write (model_writer); docs = write stage only; single = one job.
 # LLM_PROVIDER (.env) other than claude-code runs the same stages via `cli.py agent`.
 # cron example (08:00 and 18:00):  0 8,18 * * *  cd /path/to/jobhunter && ./run.sh scheduled
+# job reminders (core §16c), every 15 min:  */15 * * * *  cd /path/to/jobhunter && .venv/bin/python cli.py reminders --notify
 set -u
 
 TRIGGER="${1:-scheduled}"

@@ -47,6 +47,11 @@ review, adjust and apply. **It never submits an application — you always do.**
   - a **profile editor**, including your motivation per job category.
 - **Follow-up reminders:** a Telegram message when an application has had no reply for 14 days,
   with a ready follow-up text, and again after 6 weeks.
+- **Your own reminders:** set a date and time on any job (⏰). Telegram reminds you with the job,
+  its JobHunter link and where to apply (link, or a tap-to-write email).
+- **Recruiting agencies:** jobs posted by an agency or "on behalf of a client" get a 🤝 badge and
+  **no automatic documents**; you decide per job. Keep your own list of agencies on the
+  *Recruiters* page; adding one tags all its jobs at once.
 - **Email drafts** (never sent) with the PDFs attached, for jobs that apply by email.
 
 ## Your setup, your choices
@@ -301,8 +306,12 @@ This registers the Windows task **JobHunter**. It runs at 08:00 and 18:00, catch
 PC was off, and runs only while you're logged on, so no password is stored. Run the script again
 after changes; it updates the task. You'll find it in *Task Scheduler* as **JobHunter**.
 
+It also registers **JobHunter reminders**, which checks every 15 minutes for the reminders you set
+on jobs and sends them via Telegram. It is plain Python (no AI, no cost) and shows no window.
+
 **macOS/Linux (not tested yet):** `chmod +x run.sh`, then `crontab -e` and add
-`0 8,18 * * * cd /path/to/jobhunter && ./run.sh scheduled`.
+`0 8,18 * * * cd /path/to/jobhunter && ./run.sh scheduled` and, for reminders,
+`*/15 * * * * cd /path/to/jobhunter && .venv/bin/python cli.py reminders --notify`.
 
 ### Every day
 
@@ -405,6 +414,8 @@ has the flag, a folder named `Draft` (Yahoo), `Drafts` or `Entwürfe` (GMX, web.
 | `check-run --since "YYYY-MM-DD HH:MM:SS"` | Used by `run.ps1`: exit 1 if a run started since then never finished |
 | `add-job --url URL [--text-file F] [--title T] [--company C]` | Add a job by link (public pages are read automatically; LinkedIn/Instaffo need the pasted text). Screened like any other job |
 | `update-posting JOB --text-file F` | Add/replace a job's full posting (e.g. one from an alert email); the job is screened and evaluated again |
+| `recruiters list\|add\|update\|remove\|clear-job` | Your list of recruiting agencies (`--name` per spelling, `--note`, `--id`, `--job`). `add` tags every stored job of that company at once; their jobs never get documents unless you request them |
+| `reminders [--notify]` | Job reminders that are due; `--notify` sends them via Telegram (the task *JobHunter reminders* runs this every 15 minutes) |
 | `rename-documents` | Rename old `cv.pdf`/`anschreiben.pdf` files to `<Name>_<Job title>_<Document>.pdf` |
 | `render-test` | Renders CV + letter in German and English from `templates/examples/` into `output/_render-test/` and checks the page limits (CV ≤ 2, letter = 1) |
 | `mail-test [--account send\|alerts] [--create [--job N]]` | Checks the IMAP login. SEND (default): finds the Drafts folder; with `--create`, saves a `JobHunter test` draft to **your own** address. With `--job N`, that job's CV and letter are attached. Afterwards it checks, read-only, that the draft is in Drafts with exactly those attachments and not in Sent. ALERTS: login and folder list only. Never sends. |
@@ -457,6 +468,12 @@ npm start            # http://localhost:5173 (local only)
   **Save & evaluate now**. You can
   request **CV only, cover letter only, or both**, for the next run or **Generate now**.
 - **Needs you:** approve or reject inferred facts, and resolve flagged jobs.
+- **Recruiters:** your list of recruiting agencies (name, other spellings, note). Adding one tags
+  all jobs of that company you already have, and lists them. Jobs the AI recognised as posted by
+  an agency are listed too: add the agency, or clear the badge. On a job page: **✕ Not a
+  recruiter**, or **Add to my recruiter list**.
+- **⏰ Reminder** on every job page: date, time and a note; the Jobs list can show only jobs with
+  a reminder.
 - **Filters:** create, edit, switch on/off and delete. Each filter can have its own
   **countries** (empty = the default from Settings).
 - **Runs:** the run history.
@@ -531,7 +548,8 @@ UI.
 A run is refused if one is still running or the last one finished less than
 `min_hours_between_runs` (4 h) ago. *Generate now* runs don't wait for that gap. Each run evaluates at most `max_evaluated_per_run` (30) new
 jobs and tailors at most `max_tailored_per_run` (5); the rest carry over. After each run you get
-one Telegram message with the counts, failed sources and the jobs that need you.
+one Telegram message: the counts, then short sections (📄 documents ready, ⭐ shortlisted,
+🤝 via a recruiter, ⚠️ needs you, 🛠 problems), each job with company, place, fit and a link.
 
 ## Job sources
 

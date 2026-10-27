@@ -39,7 +39,9 @@ def test_run_message_lists_failures_and_attention(conn):
 
     msg = notify.run_message(conn, run, runs.summary_line(run))
     assert msg.count("❌ linkedin failed this run (others OK)") == 1
-    assert "⚠️ <b>Backend Developer (m/w/d)</b> – Müller &lt;GmbH&gt;, Mannheim: work_authorization" in msg
+    assert ("<b>⚠️ Needs you (1)</b>\n• <b>Backend Developer (m/w/d)</b>\n"
+            "   Müller &lt;GmbH&gt; · Mannheim · work-permit question · ") in msg
+    assert "<b>🛠 Problems</b>" in msg
     assert 'href="http://localhost:5173/jobs/1"' in msg and "Fine job" not in msg
 
 

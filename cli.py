@@ -302,6 +302,71 @@ def cmd_apply_to(args: argparse.Namespace) -> int:
     return 1 if "error" in result else 0
 
 
+def cmd_recruiters(args: argparse.Namespace) -> int:
+    """The recruiter list (core §16c): list, add (tags all stored jobs at once), update, remove, and
+    clear-job ("not a recruiter")."""
+    import json
+
+    from core import recruiters
+
+    db.init_db()
+    conn = db.connect()
+    try:
+        if args.action == "list":
+            result = {"recruiters": recruiters.list_recruiters(conn)}
+        elif args.action == "add":
+            result = recruiters.add(conn, args.name or [], args.note)
+        elif args.action == "update":
+            result = recruiters.update(conn, args.id, args.name or [], args.note)
+        elif args.action == "remove":
+            result = {"id": args.id, "untagged": recruiters.remove(conn, args.id)}
+        else:
+            recruiters.clear(conn, args.job)
+            result = {"job_id": args.job, "via_recruiter": "cleared"}
+    except (ValueError, TypeError) as e:
+        result = {"error": str(e)}
+    finally:
+        conn.close()
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    elif "error" in result:
+        print(f"Error: {result['error']}")
+    elif args.action == "list":
+        for r in result["recruiters"]:
+            print(f"{r['id']:>3}  {', '.join(r['names'])}  ({r['jobs']} jobs)")
+    elif "tagged" in result:
+        print(f"{result['names'][0]}: {len(result['tagged'])} job(s) tagged")
+        for j in result["tagged"]:
+            print(f"  {j['id']:>5}  {j['title']} — {j['company']}")
+    else:
+        print(result)
+    return 1 if "error" in result else 0
+
+
+def cmd_reminders(args: argparse.Namespace) -> int:
+    """Job reminders that are due (core §16c); --notify sends them via Telegram. Runs every 15
+    minutes from the scheduled task "JobHunter reminders" (setup-task.ps1)."""
+    import json
+
+    from core import reminders
+
+    db.init_db()
+    conn = db.connect()
+    try:
+        result = reminders.send_due(conn) if args.notify else {
+            "due": [{"id": j["id"], "title": j["title"], "remind_at": j["remind_at"]} for j in reminders.due(conn)]}
+    finally:
+        conn.close()
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    elif args.notify:
+        print(f"reminders: {result['due']} due, {result['sent']} sent" + (f" ({result['result']})" if "result" in result else ""))
+    else:
+        for j in result["due"]:
+            print(f"{j['id']:>5}  {j['remind_at']}  {j['title']}")
+    return 0
+
+
 def cmd_followups(args: argparse.Namespace) -> int:
     """Applications without a reply: due follow-ups and no-response reminders (--notify sends them)."""
     import json
@@ -517,6 +582,20 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--text-file", required=True)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_update_posting)
+    p = sub.add_parser("recruiters", help="Recruiting agencies: list/add/update/remove; clear-job = 'not a recruiter'")
+    p.add_argument("action", choices=["list", "add", "update", "remove", "clear-job"])
+    p.add_argument("--name", action="append", help="Name or another spelling (repeat for several)")
+    p.add_argument("--note")
+    p.add_argument("--id", type=int, help="Recruiter id (update/remove)")
+    p.add_argument("--job", type=int, help="Job id (clear-job)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_recruiters)
+
+    p = sub.add_parser("reminders", help="Job reminders that are due; --notify sends them via Telegram")
+    p.add_argument("--notify", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_reminders)
+
     p = sub.add_parser("followups", help="List applications due for a follow-up / with no reply; --notify sends the reminders")
     p.add_argument("--notify", action="store_true", help="Send due reminders by Telegram (each only once)")
     p.add_argument("--json", action="store_true")

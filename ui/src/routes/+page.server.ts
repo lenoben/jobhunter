@@ -1,8 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { cli } from '$lib/server/python';
 import {
-	defaultDocuments, deleteJob, favoriteCount, getSettings, listJobs, notInterested, PAGE_SIZES, requestDocuments, requestedCount, SORTS, SOURCES, STATUSES,
-	statusCounts, toggleFavorite
+	defaultDocuments, deleteJob, favoriteCount, getSettings, listJobs, listRecruiters, notInterested, PAGE_SIZES, reminderCount, requestDocuments,
+	requestedCount, SORTS, SOURCES, STATUSES, statusCounts, toggleFavorite
 } from '$lib/server/db';
 import { deleteJobFiles, runNow } from '$lib/server/files';
 
@@ -15,6 +15,9 @@ export function load({ url }) {
 		status: status !== 'all' && status !== 'open' ? status : undefined,
 		excludeSkipped: status === 'open',
 		favorites: p.get('fav') === '1',
+		recruiter: p.get('recruiter') === '1',
+		recruiterId: Number(p.get('recruiter_id')) || undefined,
+		reminders: p.get('reminders') === '1',
 		source: p.get('source') || undefined,
 		work_mode: p.get('work_mode') || undefined,
 		q: p.get('q')?.trim() || undefined,
@@ -28,10 +31,14 @@ export function load({ url }) {
 		counts: statusCounts(),
 		requested: requestedCount(),
 		favoriteCount: favoriteCount(),
+		reminderCount: reminderCount(),
+		recruiterName: p.get('recruiter_id') ? listRecruiters().find((r) => r.id === Number(p.get('recruiter_id')))?.names[0] ?? null : null,
 		openAdd: p.get('add') === '1',
 		maxEvaluated: Number(getSettings().max_evaluated_per_run ?? 30),
 		params: {
 			status, sort, dir, fav: p.get('fav') === '1' ? '1' : '',
+			recruiter: p.get('recruiter') === '1' ? '1' : '', recruiter_id: p.get('recruiter_id') ?? '',
+			reminders: p.get('reminders') === '1' ? '1' : '',
 			source: p.get('source') ?? '', work_mode: p.get('work_mode') ?? '', q: p.get('q') ?? ''
 		},
 		statuses: STATUSES,

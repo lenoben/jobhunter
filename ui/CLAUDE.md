@@ -89,3 +89,22 @@ characters; an empty field clears them. Never read by Claude or used in the docu
 
 Settings `kind: 'text'` may be `optional` (empty allowed): `llm_model_filter` / `llm_model_writer`
 are empty for Claude Code users and blocked every save before 2026-10-25.
+
+**Recruiters, reminders, author credit** (user requests 2026-10-28, core §16c):
+- `/recruiters`: add an agency (name + other spellings, comma-separated, + note) → **Add & tag
+  jobs** calls `cli.py recruiters add` and lists the stored jobs it tagged right away; edit/remove
+  (two-step `ConfirmDelete` with `label="Remove"`); a "Found by the scoring model" table with
+  **+ List** / ✕ (not a recruiter). The menu shows 🤝 N = tagged jobs not opened yet.
+- Jobs list: 🤝 Recruiter and ⏰ date tags next to the title; filters **🤝 Via recruiter**
+  (`?recruiter=1`, or `?recruiter_id=N` from /recruiters) and **⏰ Reminders** (`?reminders=1`).
+- Job page: a 🤝 card (why it's tagged; "Add <company> to my recruiter list"; "✕ Not a recruiter"),
+  and for untagged jobs a small "Add to my recruiter list" in Facts. The Documents card explains
+  that recruiter jobs get documents only on request. A **⏰ Reminder** card (date, time, note;
+  Change / Remove; saved in `db.setReminder`, local time). Opening the page sets `recruiter_seen`.
+- `+layout.svelte`: a "by lenoben" byline pill next to the brand and a footer on every page
+  ("Built by lenoben · lenoben.top · Source on GitHub"). These are the project author's credit
+  (constants `AUTHOR`, `AUTHOR_URL`, `REPO_URL`), the same for everyone who uses the project — not
+  taken from the user's profile. Styles in `app.css` (`.byline`, `.site-footer`, `.tag`).
+- Checked 2026-10-28: `svelte-check` 0 errors; pages load; screenshots of /recruiters and a job page.
+- `/stats` (2026-10-28): **Rejected** and **Withdrawn** also as stat tiles (last 30 days / 12 months)
+  and in "Right now" (links to `/?status=rejected|withdrawn`); the charts already had them.

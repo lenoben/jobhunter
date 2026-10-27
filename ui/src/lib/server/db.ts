@@ -50,7 +50,12 @@ export function getDb(): Database.Database {
 export type JobQuery = {
 	status?: string; source?: string; work_mode?: string; q?: string; excludeSkipped?: boolean;
 	favorites?: boolean; sort?: string; dir?: 'asc' | 'desc'; page?: number; pageSize?: number;
+	recruiter?: boolean; recruiterId?: number; reminders?: boolean;
 };
+
+/** jobs.via_recruiter values that block automatic documents (core/recruiters.py TAGGED). */
+export const RECRUITER_TAGS = ['list', 'detected'];
+const TAGGED_SQL = "via_recruiter IN ('list', 'detected')";
 
 /** Sortable columns (whitelist → SQL). NULL fit scores always go last. */
 export const SORTS: Record<string, string> = {
@@ -71,6 +76,9 @@ export function listJobs(f: JobQuery) {
 	if (f.status) { where.push('status = ?'); args.push(f.status); }
 	else if (f.excludeSkipped) where.push("status != 'skipped'");
 	if (f.favorites) where.push('favorite = 1');
+	if (f.recruiter) where.push(TAGGED_SQL);
+	if (f.recruiterId) { where.push("via_recruiter = 'list' AND recruiter_id = ?"); args.push(f.recruiterId); }
+	if (f.reminders) where.push('remind_at IS NOT NULL AND reminded_at IS NULL');
 	if (f.source) { where.push('source = ?'); args.push(f.source); }
 	if (f.work_mode) { where.push("COALESCE(work_mode, 'unknown') = ?"); args.push(f.work_mode); }
 	if (f.q) {
@@ -86,7 +94,8 @@ export function listJobs(f: JobQuery) {
 	const pages = Math.max(1, Math.ceil(total / pageSize));
 	const page = Math.min(Math.max(1, f.page ?? 1), pages);
 	const sql = `SELECT j.id, title, company, location, work_mode, fit_score, status, attention_reason,
-	                    source, salary_flag, first_seen_at, docs_requested, favorite,
+	                    source, salary_flag, first_seen_at, docs_requested, favorite, via_recruiter, recruiter_reason,
+	                    CASE WHEN reminded_at IS NULL THEN remind_at END AS remind_at,
 	                    (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.id
 	                       AND (a.cv_path IS NOT NULL OR a.letter_path IS NOT NULL)) AS has_docs
 	             FROM jobs j ${whereSql}
@@ -134,6 +143,56 @@ export function saveUserNotes(jobId: number, text: string) {
 	const r = getDb().prepare("UPDATE jobs SET user_notes = ?, user_notes_at = CASE WHEN ? IS NULL THEN NULL ELSE datetime('now') END WHERE id = ?")
 		.run(notes || null, notes || null, jobId);
 	if (!r.changes) throw new Error(`job ${jobId} not found`);
+}
+
+// ── recruiters (core/recruiters.py; adding/removing goes through the Python CLI, which matches) ──
+
+/** The user's recruiter list with how many stored jobs each one tagged. */
+export function listRecruiters() {
+	return (getDb().prepare(`SELECT r.id, r.names, r.note, r.created_at,
+	          (SELECT COUNT(*) FROM jobs j WHERE j.recruiter_id = r.id AND j.via_recruiter = 'list') AS jobs
+	        FROM recruiters r ORDER BY r.names COLLATE NOCASE`).all() as any[])
+		.map((r) => ({ ...r, names: JSON.parse(r.names || '[]') as string[] }));
+}
+
+/** Jobs the scoring model flagged as via a recruiter (not from the list), newest first. */
+export function detectedRecruiterJobs(limit = 50) {
+	return getDb().prepare(`SELECT id, title, company, location, status, fit_score, recruiter_reason, first_seen_at
+	        FROM jobs WHERE via_recruiter = 'detected' ORDER BY first_seen_at DESC, id DESC LIMIT ?`).all(limit) as any[];
+}
+
+/** Tagged recruiter jobs the user hasn't opened yet and that still matter (the 🤝 count in the menu). */
+export function recruiterUnseenCount(): number {
+	return (getDb().prepare(`SELECT COUNT(*) n FROM jobs WHERE ${TAGGED_SQL} AND recruiter_seen = 0
+	        AND status IN ('new', 'shortlisted', 'docs_ready', 'needs_attention')`).get() as any).n;
+}
+
+export function markRecruiterSeen(jobId: number) {
+	getDb().prepare(`UPDATE jobs SET recruiter_seen = 1 WHERE id = ? AND ${TAGGED_SQL} AND recruiter_seen = 0`).run(jobId);
+}
+
+// ── reminders (core/reminders.py sends them; remind_at = local time 'YYYY-MM-DD HH:MM') ──
+
+const REMIND_AT = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/;
+
+export function setReminder(jobId: number, at: string, note: string | null) {
+	const m = REMIND_AT.exec(at.trim());
+	if (!m) throw new Error('pick a date and a time for the reminder');
+	const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+	if (d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[3]) throw new Error('that date does not exist');
+	const value = `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
+	const r = getDb().prepare('UPDATE jobs SET remind_at = ?, remind_note = ?, reminded_at = NULL WHERE id = ?')
+		.run(value, (note ?? '').trim().slice(0, 500) || null, jobId);
+	if (!r.changes) throw new Error(`job ${jobId} not found`);
+	return { at: value, past: d.getTime() <= Date.now() };
+}
+
+export function clearReminder(jobId: number) {
+	getDb().prepare('UPDATE jobs SET remind_at = NULL, remind_note = NULL, reminded_at = NULL WHERE id = ?').run(jobId);
+}
+
+export function reminderCount(): number {
+	return (getDb().prepare('SELECT COUNT(*) n FROM jobs WHERE remind_at IS NOT NULL AND reminded_at IS NULL').get() as any).n;
 }
 
 export function favoriteCount(): number {
@@ -493,6 +552,7 @@ export const SETTING_INFO: Record<string, {
 	notify_attention: { label: 'Telegram: jobs that need you', kind: 'bool' },
 	notify_failures: { label: 'Telegram: failed runs, source errors, runs that could not start', kind: 'bool' },
 	notify_followups: { label: 'Telegram: follow-up reminders for applications without a reply', kind: 'bool' },
+	notify_reminders: { label: 'Telegram: the reminders you set on a job (⏰, checked every 15 minutes)', kind: 'bool' },
 	followup_after_days: { label: 'Follow-up reminder after … days without a reply (0 = off)', kind: 'int' },
 	followup_no_response_days: { label: '"No reply" reminder after … days (suggests rejected/withdrawn; 0 = off)', kind: 'int' },
 	work_permit_checks: { label: 'I need a work permit: flag jobs below the Blue Card salary or demanding unrestricted work authorization (off = EU citizens)', kind: 'bool' },

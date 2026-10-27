@@ -67,6 +67,12 @@ then `evaluate_job`:
   `{title, scope, days, covers}`. Make them small and realistic: build on the user's stack and
   existing projects where possible.
 - Use **shortlist** only when `fit_score ≥` the filter's `min_fit_score`.
+- **Recruiters:** if the posting comes from a recruiting / staffing agency or is written for a client
+  it doesn't name ("on behalf of our client", "für unseren Kunden", Personalvermittlung,
+  Arbeitnehmerüberlassung, the company is plainly an agency), pass `via_recruiter = true` and
+  `recruiter_reason` (a few words). Score and decide as usual. If `get_job` already shows
+  `via_recruiter` (`list` or `cleared`), leave it out. Such jobs get documents only on the user's
+  request; the code enforces that.
 
 Then reply with one line ("evaluated N, shortlisted M") and **stop**. Do not call `finish_run`; the
 write stage does that.
@@ -77,7 +83,8 @@ write stage does that.
 
 **B2.** Call `list_jobs("shortlisted", for_documents = true, limit = max_tailored_per_run)`. This
 returns jobs with fit ≥ `min_fit_for_documents`, and jobs the user requested (`docs_requested`),
-requested ones first. For each job, run **Tailor one job** (below).
+requested ones first. Jobs via a recruiter are left out unless the user requested them. For each
+job, run **Tailor one job** (below).
 
 **B3.** Call `finish_run(run_id)` and reply with its `summary` line.
 
@@ -109,7 +116,8 @@ Do not call `finish_run`; the write stage does that.
 ## Stage `single-write`
 **D2.** Call `current_run`, `get_settings`, `get_profile` and `get_job(N)`.
 - If the job is `shortlisted` and (`fit_score ≥ min_fit_for_documents` or `docs_requested`), run
-  **Tailor one job** for it.
+  **Tailor one job** for it. A job with `via_recruiter` `list` or `detected` qualifies only through
+  `docs_requested` ("via a recruiter: documents only on request").
 - Otherwise write nothing.
 
 Then call `finish_run(run_id)` and reply with one line: documents written, or why not (e.g. "fit

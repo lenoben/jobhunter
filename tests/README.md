@@ -174,3 +174,29 @@ Before using the built UI (`npm start`), build it once: `cd ui; npm run build`. 
 **By hand:**
 - a run with `search_countries` = `["usa", "remote"]` against the real boards;
 - 🗑 Delete in the UI: the confirm step on the list and the job page, then `output/<id>/` is gone.
+
+## Added 2026-10-28 (all 245 passed)
+
+**`tests/test_recruiters_reminders.py`** (new file)
+
+| Test | Checks |
+|---|---|
+| `test_matching_is_by_whole_words_after_normalising` | "Hays" matches "Hays AG" / "HAYS Professional Solutions GmbH", not "Haystack" |
+| `test_adding_tags_stored_jobs_at_once_and_new_jobs_on_insert` | Adding a recruiter tags stored jobs (not "cleared" ones) and later new ones; duplicates refused; removing untags |
+| `test_recruiter_jobs_get_documents_only_on_request` | `list_jobs(for_documents)` leaves out list/detected jobs until the user requests documents or clears the badge |
+| `test_via_recruiter_needs_a_reason_and_keeps_a_list_tag` | `evaluate_job(via_recruiter=True)` needs a reason; a list tag stays "list" |
+| `test_render_documents_refuses_a_recruiter_job` | The MCP tool refuses documents for an unrequested recruiter job |
+| `test_run_message_has_sections_and_a_recruiter_block` | The new Telegram layout: header, ⭐ and 🤝 sections, two-line entries, "Open JobHunter" |
+| `test_reminders_go_out_once_with_both_links` | A reminder is sent at its time, once, with the JobHunter link, a `mailto:` and the posting |
+| `test_a_failed_send_is_retried` | A reminder Telegram didn't accept goes out next time |
+
+**Also new (2026-10-26/27):** `test_chat_names_a_blocked_network`,
+`test_main_prints_errors_from_inside_the_mcp_session`, `test_describe_error_reads_geminis_list_body`
+(`tests/test_agent.py`) and `test_model_list_failure_is_explained_and_a_model_is_required`
+(`tests/test_setup.py`).
+
+**Changed:** the run-message assertions in `tests/test_notify.py` and
+`tests/test_apply_favorites_notify.py` follow the new sectioned layout.
+
+**By hand:** after `.\setup-task.ps1`, set a reminder 2 minutes ahead on a job page and check
+that Telegram shows it within 15 minutes, and that the email link opens your mail app.

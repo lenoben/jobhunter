@@ -79,6 +79,8 @@ def insert_job(conn: sqlite3.Connection, p: JobPosting, note: str | None = None)
         "INSERT INTO status_history (job_id, from_status, to_status, note, changed_by) VALUES (?, NULL, ?, ?, 'claude')",
         (job_id, p.status, note),
     )
+    from core import recruiters
+    recruiters.tag_new_job(conn, job_id, p.company)  # the user's recruiter list (core §16c)
     return job_id
 
 
@@ -115,14 +117,16 @@ def list_jobs(conn: sqlite3.Connection, status: str, limit: int = 50, for_docume
     if not 1 <= limit <= 500:
         raise ValueError("limit must be between 1 and 500")
     cols = """id, title, company, location, status, attention_reason, fit_score, salary_flag, work_mode,
-              language, apply_method, docs_requested, posted_at, first_seen_at"""
+              language, apply_method, docs_requested, via_recruiter, posted_at, first_seen_at"""
     if for_documents:
         if status != "shortlisted":
             raise ValueError("for_documents only works with status 'shortlisted'")
         threshold = int(float(get_settings(conn).get("min_fit_for_documents", "60")))
+        # recruiter jobs (core §16c) only when the user requested them, whatever their score
         rows = [dict(r) for r in conn.execute(
             f"""SELECT {cols} FROM jobs
-                WHERE status = 'shortlisted' AND (docs_requested IS NOT NULL OR fit_score >= ?)
+                WHERE status = 'shortlisted' AND (docs_requested IS NOT NULL OR
+                      (fit_score >= ? AND COALESCE(via_recruiter, '') NOT IN ('list', 'detected')))
                 ORDER BY docs_requested IS NULL, fit_score DESC, first_seen_at LIMIT ?""", (threshold, limit))]
         for r in rows:
             r["documents"] = documents_to_write(conn, r["docs_requested"])
@@ -173,7 +177,8 @@ def history(conn: sqlite3.Connection, job_id: int) -> list[dict]:
 
 def evaluate_job(conn: sqlite3.Connection, job_id: int, fit_score: int, fit_notes: str, work_mode: str,
                  employment_type: str, language: str, apply_method: str, decision: str,
-                 apply_email: str | None = None, project_suggestions: list | None = None) -> str:
+                 apply_email: str | None = None, project_suggestions: list | None = None,
+                 via_recruiter: bool = False, recruiter_reason: str | None = None) -> str:
     """Store Claude's evaluation of a `new` job and move it to shortlisted/skipped. Returns the new status.
     A job that has no fit score yet in another status (documents requested before it was evaluated,
     or a re-evaluation, user request 2026-10-18) gets its score and notes stored; its status stays."""
@@ -204,12 +209,17 @@ def evaluate_job(conn: sqlite3.Connection, job_id: int, fit_score: int, fit_note
             raise ValueError(f"fit_score {fit_score} is below the filter's min_fit_score "
                              f"{row['min_fit_score']}; use decision 'skip'")
     suggestions = _project_suggestions(project_suggestions)
+    if via_recruiter and not (recruiter_reason or "").strip():
+        raise ValueError("via_recruiter needs recruiter_reason (what in the posting shows it)")
 
     conn.execute(
         "UPDATE jobs SET fit_score = ?, fit_notes = ?, work_mode = ?, employment_type = ?, language = ?, "
         "apply_method = ?, apply_email = ?, project_suggestions = ?, updated_at = datetime('now') WHERE id = ?",
         (fit_score, fit_notes, work_mode, employment_type, language, apply_method,
          apply_email.strip() if apply_email else None, suggestions, job_id))
+    if via_recruiter:
+        from core import recruiters
+        recruiters.mark_detected(conn, job_id, recruiter_reason or "")
     if score_only:
         conn.execute("INSERT INTO status_history (job_id, from_status, to_status, note, changed_by) "
                      "VALUES (?, ?, ?, ?, 'claude')", (job_id, job["status"], job["status"], f"scored: fit {fit_score}"))

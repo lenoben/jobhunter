@@ -70,6 +70,29 @@ nav .theme { margin-left: auto; padding: 0.35rem 0.75rem; font-size: 1.1rem; }
 
 main { max-width: 1200px; margin: 0 auto; padding: 1.25rem 16px 3rem; }
 
+/* author credit: a quiet byline next to the brand, and a footer on every page */
+body { min-height: 100vh; display: flex; flex-direction: column; }
+main { width: 100%; flex: 1 0 auto; }
+nav .brand-wrap { display: inline-flex; align-items: baseline; gap: 0.45rem; margin-right: 0.75rem; }
+nav .brand-wrap .brand { margin-right: 0; padding-right: 0; }
+nav a.byline { padding: 0.1rem 0.45rem; font-size: 0.74rem; font-weight: 500; letter-spacing: 0.02em; color: var(--muted);
+	border: 1px solid var(--border); border-radius: 999px; line-height: 1.5; white-space: nowrap; }
+nav a.byline:hover { color: var(--accent); border-color: var(--accent); background: none; }
+.site-footer { border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.84rem; }
+.footer-inner { max-width: 1200px; margin: 0 auto; padding: 0.9rem 16px; display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; align-items: center; }
+.footer-inner a { color: var(--text); font-weight: 500; }
+.footer-inner a:hover { color: var(--accent); }
+.footer-brand { font-weight: 700; color: var(--text); }
+.footer-sep { width: 1px; height: 1em; background: var(--border); margin: 0 0.15rem; }
+.footer-dot { color: var(--border); }
+.badge.recruiter { background: var(--warn); }
+
+/* 🤝 recruiter and ⏰ reminder markers (Jobs list, job page) */
+.tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.02rem 0.45rem; border-radius: 999px; font-size: 0.75rem;
+	font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.tag.recruiter { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.tag.reminder { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 1rem; }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
@@ -84,7 +107,7 @@ tbody tr:hover { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; }
 
 input, select, textarea, button { font: inherit; color: inherit; }
-input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], select, textarea {
+input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], input[type='time'], select, textarea {
 	background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.55rem; min-width: 0;
 }
 textarea { width: 100%; min-height: 4.5rem; }
@@ -139,9 +162,12 @@ legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
 	header nav::-webkit-scrollbar { display: none; }
 	header nav a { white-space: nowrap; }
 	header nav .brand { margin-right: 0.25rem; }
+	nav .brand-wrap { margin-right: 0.25rem; }
+	.footer-inner { padding: 0.8rem 12px; }
+	.footer-sep { display: none; }
 
 	/* 16px stops iOS from zooming into a field; text fields in a row get a line of their own */
-	input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], select, textarea { font-size: 16px; }
+	input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], input[type='time'], select, textarea { font-size: 16px; }
 	.row > :is(input[type='text'], input[type='search'], input[type='url']) { flex: 1 1 100%; }
 	button, .button { padding: 0.45rem 0.8rem; }
 

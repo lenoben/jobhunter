@@ -105,6 +105,10 @@ def _place(j: dict) -> str:
     return f" – {place}" if place else ""
 
 
+def link(href: str, text: str) -> str:
+    return f'<a href="{html.escape(href, quote=True)}">{_e(text)}</a>'
+
+
 def _documents(job_id: int) -> str:
     from core.applications import classify_document, list_documents
 
@@ -112,99 +116,133 @@ def _documents(job_id: int) -> str:
     return " + ".join(labels) or "documents"
 
 
-def _capped(lines: list[str], items: list, render, more: str) -> None:
-    lines.extend(render(j) for j in items[:MAX_LIST_ITEMS])
+# Plain words for the attention reasons (core/models.py ATTENTION_REASONS).
+REASONS = {"needs_login": "login needed", "captcha": "CAPTCHA", "form_unclear": "form unclear",
+           "missing_profile_info": "profile info missing", "german_only_form": "German-only form",
+           "source_error": "source error", "work_authorization": "work-permit question",
+           "below_blue_card_threshold": "salary below the Blue Card threshold",
+           "inferred_facts": "approve the inferred facts", "alert_review": "job alert to review"}
+TRIGGERS = {"scheduled": "Scheduled run", "manual": "Run now", "evaluate": "Score waiting jobs",
+            "docs": "Generate now", "single": "Evaluate now"}
+
+
+def _section(lines: list[str], title: str, items: list, render, more: str | None = None) -> None:
+    """A blank line, a bold heading with the count, then the entries (capped at MAX_LIST_ITEMS)."""
+    if not items:
+        return
+    lines += ["", f"<b>{title} ({len(items)})</b>"]
+    for j in items[:MAX_LIST_ITEMS]:
+        lines.extend(render(j))
     if len(items) > MAX_LIST_ITEMS:
-        lines.append(f"… and {len(items) - MAX_LIST_ITEMS} more: {more}")
+        lines.append(f"… and {len(items) - MAX_LIST_ITEMS} more" + (f" · {more}" if more else ""))
 
 
-def run_message(conn: sqlite3.Connection, run: dict, summary: str) -> str:
-    """The message for a finished run, depending on its trigger and the notify_* settings:
-    - scheduled/manual: summary line, motivation gaps, new shortlisted jobs without documents;
-    - docs ("Generate now"): the documents written, and requested jobs still waiting;
-    - single ("Evaluate now"): the job's fit score and decision;
-    and for all: every job whose documents were written (with links), jobs that need the user,
-    and source / run problems. Empty string if nothing is enabled or there is nothing to say."""
-    from core.runs import (attention_jobs, evaluated_jobs, motivation_gaps, requested_waiting, source_problems,
-                           written_jobs)
+def run_message(conn: sqlite3.Connection, run: dict, summary: str = "") -> str:
+    """The message for a finished run (user request 2026-10-28: clear sections instead of one long
+    list). A header (what ran and when) with the counts, then one section per kind, each entry as
+        • <b>Title</b>
+           Company · City · fit 72 · … · open
+    Sections, by trigger and the notify_* settings:
+    - 📄 Documents ready (all triggers; docs runs also ⏳ still waiting);
+    - 🧮 the job's score (single);
+    - ⭐ Shortlisted, no documents yet · 🤝 Via a recruiter (documents only on request, core §16c) ·
+      ✍️ motivation missing (scheduled / manual / evaluate);
+    - ⚠️ Needs you, and one 📥 line for job-alert jobs;
+    - 🛠 Problems: sources and the run itself;
+    and a link to JobHunter. Empty string if nothing is enabled or there is nothing to say.
+    `summary` (finish_run's line) is no longer used: the counts come from `run`."""
+    from core.runs import (_parse, attention_jobs, evaluated_jobs, motivation_gaps, requested_waiting,
+                           source_problems, written_jobs)
 
     since, until, trigger = run["started_at"], run.get("finished_at"), run.get("trigger") or "scheduled"
     base = get_settings(conn).get("ui_base_url", "http://localhost:5173").rstrip("/")
-    link = lambda j: f"<a href=\"{base}/jobs/{j['id']}\">open</a>"  # noqa: E731
-    fit = lambda j: f" (fit {j['fit_score']})" if j.get("fit_score") is not None else ""  # noqa: E731
-    lines: list[str] = []
-    written = written_jobs(conn, since, until)
 
-    if trigger == "docs":
-        if enabled(conn, "notify_docs_ready"):
-            lines.append(f"✍️ Requested documents: {len(written)} written" if written
-                         else "✍️ Requested documents: nothing was written this time")
-    elif trigger == "single":
+    def entry(j: dict, *extra: str) -> list[str]:
+        meta = [_e(x) for x in (j.get("company"), j.get("location")) if x]
+        if j.get("fit_score") is not None:
+            meta.append(f"fit {j['fit_score']}")
+        meta += [x for x in extra if x]
+        return [f"• <b>{_e(j['title'])}</b>", "   " + " · ".join([*meta, link(f"{base}/jobs/{j['id']}", "open")])]
+
+    written = written_jobs(conn, since, until)
+    written_ids = {w["id"] for w in written}
+    scored = evaluated_jobs(conn, since, until) if trigger != "docs" else []
+    try:
+        when = f" · {_parse(since).astimezone():%d.%m. %H:%M}"
+    except (TypeError, ValueError):
+        when = ""
+    body: list[str] = []
+
+    if trigger == "single":
         if enabled(conn, "notify_evaluated"):
-            for j in evaluated_jobs(conn, since, until):
+            for j in scored:
                 verdict = {"shortlisted": "shortlisted ✅", "skipped": "skipped"}.get(
-                    j["decision"], f"scored (stays {j['decision'].replace('_', ' ')})")
-                lines.append(f"🧮 <b>{_e(j['title'])}</b>{_place(j)}: fit {j['fit_score']} → {verdict} {link(j)}")
+                    j["decision"], f"scored, stays {j['decision'].replace('_', ' ')}")
+                body += entry(j, verdict)
+                if j.get("via_recruiter") in ("list", "detected"):
+                    body.append(f"   🤝 via a recruiter: documents only on request ({_e(j.get('recruiter_reason'))})")
+    elif trigger == "docs":
+        if enabled(conn, "notify_docs_ready"):
+            body.append(f"{len(written)} written" if written else "Nothing was written this time.")
     elif enabled(conn, "notify_run_summary"):
         if trigger == "evaluate":
-            scored = evaluated_jobs(conn, since, until)
             short = sum(j["decision"] == "shortlisted" for j in scored)
             left = conn.execute("SELECT COUNT(*) FROM jobs WHERE status = 'new'").fetchone()[0]
-            lines.append(f"🧮 Scored {len(scored)} waiting jobs · {short} shortlisted · "
-                         f"{len(written)} docs ready · {left} still waiting")
+            body.append(f"{len(scored)} scored · {short} shortlisted · {len(written)} docs ready · {left} still waiting")
         else:
-            lines.append(_e(summary))
-        gaps = motivation_gaps(conn, since)
-        if gaps:
-            lines.append("✍️ Add your motivation in profile.yaml for: " + ", ".join(_e(g) for g in gaps))
-        # Worth a look, but below min_fit_for_documents: the user can press "Write docs".
-        written_ids = {w["id"] for w in written}
-        waiting = [j for j in evaluated_jobs(conn, since, until)
-                   if j["decision"] == "shortlisted" and j["id"] not in written_ids and not j["docs_requested"]]
-        if waiting:
-            lines.append("⭐ Shortlisted, no documents yet:")
-            _capped(lines, waiting, lambda j: f"• <b>{_e(j['title'])}</b>{_place(j)}{fit(j)} {link(j)}", f"{base}/?status=shortlisted")
+            body.append(f"{run.get('found') or 0} found · {run.get('new_jobs') or 0} new · "
+                        f"{run.get('tailored') or 0} docs ready · {run.get('needs_you') or 0} need you")
 
     if written and enabled(conn, "notify_docs_ready"):
-        if trigger != "docs":
-            lines.append("📄 Documents ready:")
-        def doc_line(j):
-            extra = " · ✉️ email draft saved" if j["email_draft_saved"] else ""
-            if j["status"] == "needs_attention":
-                extra += " · ⚠️ approve the inferred facts first"
-            return f"• <b>{_e(j['title'])}</b>{_place(j)}{fit(j)}: {_documents(j['id'])}{extra} {link(j)}"
-        _capped(lines, written, doc_line, f"{base}/?status=docs_ready")
+        def doc_entry(j):
+            return entry(j, _documents(j["id"]), "✉️ draft saved" if j["email_draft_saved"] else "",
+                         "⚠️ approve the inferred facts first" if j["status"] == "needs_attention" else "")
+        _section(body, "📄 Documents ready", written, doc_entry, link(f"{base}/?status=docs_ready", "all"))
     if trigger == "docs" and enabled(conn, "notify_docs_ready"):
-        left = requested_waiting(conn)
-        if left:
-            lines.append("⏳ Still waiting (next run or Generate now):")
-            _capped(lines, left, lambda j: f"• <b>{_e(j['title'])}</b>{_place(j)} {link(j)}", base)
+        _section(body, "⏳ Still waiting (next run or Generate now)", requested_waiting(conn), entry)
+
+    if trigger not in ("docs", "single") and enabled(conn, "notify_run_summary"):
+        shortlisted = [j for j in scored if j["decision"] == "shortlisted" and j["id"] not in written_ids
+                       and not j["docs_requested"]]
+        via = [j for j in shortlisted if j.get("via_recruiter") in ("list", "detected")]
+        rest = [j for j in shortlisted if j not in via]
+        _section(body, "⭐ Shortlisted, no documents yet", rest, entry, link(f"{base}/?status=shortlisted", "all"))
+        _section(body, "🤝 Via a recruiter (documents only on request)", via,
+                 lambda j: entry(j, _e(j.get("recruiter_reason") or "")), link(f"{base}/?recruiter=1", "all"))
+        gaps = motivation_gaps(conn, since)
+        if gaps:
+            body += ["", "<b>✍️ Motivation missing</b> in profile.yaml for: " + ", ".join(_e(g) for g in gaps)]
 
     if enabled(conn, "notify_attention"):
-        written_ids = {w["id"] for w in written}
-        jobs = [j for j in attention_jobs(conn, since, until) if j["id"] not in written_ids]  # already listed above
-        review = [j for j in jobs if j["attention_reason"] == "alert_review"]
-        jobs = [j for j in jobs if j["attention_reason"] != "alert_review"]
-        _capped(lines, jobs, lambda j: f"⚠️ <b>{_e(j['title'])}</b>{_place(j)}: {_e(j['attention_reason'])} {link(j)}",
-                f"{base}/attention")
+        found = [j for j in attention_jobs(conn, since, until) if j["id"] not in written_ids]  # listed above
+        review = [j for j in found if j["attention_reason"] == "alert_review"]
+        found = [j for j in found if j["attention_reason"] != "alert_review"]
+        _section(body, "⚠️ Needs you", found,
+                 lambda j: entry(j, _e(REASONS.get(j["attention_reason"], j["attention_reason"]))),
+                 link(f"{base}/attention", "all"))
         if review:  # one line, not one per job: these can be many
-            lines.append(f"📥 {len(review)} job-alert jobs match no filter — pick the ones worth evaluating: "
-                         f"<a href=\"{base}/attention#review\">review</a>")
+            body += ["", f"📥 {len(review)} job-alert jobs match no filter: "
+                         + link(f"{base}/attention#review", "pick the ones worth evaluating")]
 
     if enabled(conn, "notify_failures"):
+        problems = []
         for p in source_problems(run):
             name = _e(p["source"].removeprefix("jobspy:"))
             if p["failed"] >= p["of"]:
-                lines.append(f"❌ {name} failed this run (others OK)")
+                problems.append(f"❌ {name} failed this run (others OK)")
             elif p["soft"]:
-                lines.append(f"⚠️ {name}: no results for {p['failed']} of {p['of']} filters")
+                problems.append(f"⚠️ {name}: no results for {p['failed']} of {p['of']} filters")
             else:
-                lines.append(f"⚠️ {name}: errors in {p['failed']} of {p['of']} filters")
+                problems.append(f"⚠️ {name}: errors in {p['failed']} of {p['of']} filters")
         errors = run.get("errors") or []
-        for e in json.loads(errors) if isinstance(errors, str) else errors:
-            if e.get("source") == "run":
-                lines.append(f"🛑 {_e(e.get('message'))}")
-    return "\n".join(lines)
+        problems += [f"🛑 {_e(e.get('message'))}" for e in (json.loads(errors) if isinstance(errors, str) else errors)
+                     if e.get("source") == "run"]
+        if problems:
+            body += ["", "<b>🛠 Problems</b>", *problems]
+
+    if not body:
+        return ""
+    return "\n".join([f"🔎 <b>{TRIGGERS.get(trigger, 'Run')}</b>{when}", *body, "", link(base, "Open JobHunter")])
 
 
 def notify_run_finished(conn: sqlite3.Connection, run: dict, summary: str) -> str:

@@ -12,7 +12,8 @@
 		const p = new URLSearchParams();
 		const cur: Record<string, string | number> = {
 			q: data.params.q, status: data.params.status, source: data.params.source,
-			work_mode: data.params.work_mode, fav: data.params.fav, sort: data.params.sort, dir: data.params.dir,
+			work_mode: data.params.work_mode, fav: data.params.fav, recruiter: data.params.recruiter,
+			recruiter_id: data.params.recruiter_id, reminders: data.params.reminders, sort: data.params.sort, dir: data.params.dir,
 			size: data.pageSize, page: 1, ...changes
 		};
 		for (const [k, v] of Object.entries(cur)) {
@@ -51,6 +52,8 @@
 {#if form?.error}<div class="flash">{form.error}</div>{/if}
 {#if form?.started}<div class="flash">{form.started}</div>{/if}
 {#if form?.deleted || data.deleted}<div class="flash">Job deleted, with its documents.</div>{/if}
+{#if data.recruiterName}<div class="flash">Jobs from <strong>{data.recruiterName}</strong> (your recruiter list) ·
+	<a href={href({ recruiter_id: '' })}>show all jobs</a></div>{/if}
 {#if data.requested > 0}
 	<div class="card row" style="border-color: var(--accent)">
 		<div class="grow"><strong>{data.requested}</strong> job{data.requested === 1 ? '' : 's'} waiting for documents you requested.
@@ -109,6 +112,13 @@
 	<label class="checks" style="margin: 0" title="Show only your favourites">
 		<input type="checkbox" name="fav" value="1" checked={data.params.fav === '1'} /> ★ Favourites ({data.favoriteCount})
 	</label>
+	<label class="checks" style="margin: 0" title="Jobs via a recruiting agency: documents only when you request them">
+		<input type="checkbox" name="recruiter" value="1" checked={data.params.recruiter === '1'} /> 🤝 Via recruiter
+	</label>
+	<label class="checks" style="margin: 0" title="Jobs with a reminder still to come">
+		<input type="checkbox" name="reminders" value="1" checked={data.params.reminders === '1'} /> ⏰ Reminders ({data.reminderCount})
+	</label>
+	{#if data.params.recruiter_id}<input type="hidden" name="recruiter_id" value={data.params.recruiter_id} />{/if}
 	<input type="hidden" name="sort" value={data.params.sort} />
 	<input type="hidden" name="dir" value={data.params.dir} />
 	<button>Filter</button>
@@ -145,7 +155,11 @@
 								aria-pressed={!!j.favorite}>{j.favorite ? '★' : '☆'}</button>
 						</form>
 					</td>
-					<td class="title"><a href="/jobs/{j.id}">{j.title}</a></td>
+					<td class="title"><a href="/jobs/{j.id}">{j.title}</a>
+						{#if j.via_recruiter === 'list' || j.via_recruiter === 'detected'}<span class="tag recruiter"
+							title="Via a recruiter ({j.recruiter_reason ?? ''}): documents only when you request them">🤝 Recruiter</span>{/if}
+						{#if j.remind_at}<span class="tag reminder" title="Reminder {j.remind_at}">⏰ {j.remind_at.slice(8, 10)}.{j.remind_at.slice(5, 7)}. {j.remind_at.slice(11)}</span>{/if}
+					</td>
 					<td class="company">{j.company ?? '–'}</td>
 					<td class="location">{j.location ?? '–'}</td>
 					<td class="hide-sm">{j.work_mode ?? '–'}</td>

@@ -24,6 +24,26 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -S
     -Principal $principal -Description 'JobHunter: search, evaluate and tailor job applications (never submits).' `
     -Force | Out-Null
 
+# Second task: job reminders (core §16c). Every 15 minutes, plain Python, no AI and no tokens.
+# pythonw has no console window, so nothing flashes up on the screen.
+$remindName = 'JobHunter reminders'
+$pythonw = Join-Path $PSScriptRoot '.venv\Scripts\pythonw.exe'
+if (Test-Path $pythonw) {
+    $remindAction = New-ScheduledTaskAction -Execute $pythonw -Argument 'cli.py reminders --notify' `
+        -WorkingDirectory $PSScriptRoot
+    $remindTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date `
+        -RepetitionInterval (New-TimeSpan -Minutes 15)
+    $remindSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew `
+        -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    Register-ScheduledTask -TaskName $remindName -Action $remindAction -Trigger $remindTrigger `
+        -Settings $remindSettings -Principal $principal `
+        -Description 'JobHunter: send the job reminders you set (Telegram). No AI.' -Force | Out-Null
+    "Task '$remindName' registered: every 15 minutes"
+} else {
+    "Task '$remindName' NOT registered: run  uv sync  first (needs .venv\Scripts\pythonw.exe), then this script again"
+}
+
 $t = Get-ScheduledTask -TaskName $taskName
 "Task '$taskName' registered: " + (($t.Triggers | ForEach-Object { ([datetime]$_.StartBoundary).ToString('HH:mm') }) -join ' and ') +
     " daily · StartWhenAvailable=$($t.Settings.StartWhenAvailable) · WakeToRun=$($t.Settings.WakeToRun) · " +

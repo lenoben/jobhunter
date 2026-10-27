@@ -13,7 +13,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from core import applications, db, jobs, runs
+from core import applications, db, jobs, recruiters, runs
 from core.filters import load_filters
 from core.profile import ProfileError, load_profile
 
@@ -172,7 +172,7 @@ def get_job(job_id: int) -> dict[str, Any]:
     `documents` (cv | letter | both | motivation) says which documents to write for it."""
     with _db() as conn:
         job = jobs.get_job(conn, job_id)
-        for k in ("user_notes", "user_notes_at"):  # the user's private notes (migration 017), not for runs
+        for k in ("user_notes", "user_notes_at", "remind_at", "remind_note", "reminded_at", "recruiter_seen"):  # the user's own (017, 020)
             job.pop(k, None)
         f = next((x for x in load_filters(conn) if x.id == job["filter_id"]), None)
         job["filter_name"] = f.name if f else None  # key for profile.motivation (§7 rule 2)
@@ -200,7 +200,8 @@ def get_profile() -> dict[str, Any]:
 def evaluate_job(job_id: int, fit_score: int, fit_notes: str, work_mode: str, employment_type: str,
                  language: str, apply_method: str, decision: str,
                  apply_email: str | None = None,
-                 project_suggestions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+                 project_suggestions: list[dict[str, Any]] | None = None,
+                 via_recruiter: bool = False, recruiter_reason: str | None = None) -> dict[str, Any]:
     """Store your evaluation of a job with status 'new' (→ shortlisted/skipped), or of a job in another
     status that has no fit_score yet (score, notes and project ideas are stored; the status stays).
     work_mode: remote|hybrid|onsite|unknown. employment_type: full_time|part_time|minijob|
@@ -209,10 +210,15 @@ def evaluate_job(job_id: int, fit_score: int, fit_notes: str, work_mode: str, em
     decision: 'skip' or 'shortlist' (shortlist needs fit_score ≥ the filter's min_fit_score).
     fit_notes: Markdown — why it fits, gaps, and 'salary unknown' when salary_flag says so.
     project_suggestions (R11, for gaps): [{title, scope, days, covers}] — small realistic projects
-    the user could build; shown in the UI, never put into documents."""
+    the user could build; shown in the UI, never put into documents.
+    via_recruiter=true when the posting comes from a recruiting / staffing agency or is written for an
+    unnamed client ("on behalf of our client", "für unseren Kunden", Personalvermittlung,
+    Arbeitnehmerüberlassung, the company is plainly an agency); recruiter_reason = what shows it,
+    in a few words. Score and decide as usual: such jobs get documents only when the user asks."""
     with _db() as conn:
         status = jobs.evaluate_job(conn, job_id, fit_score, fit_notes, work_mode, employment_type,
-                                   language, apply_method, decision, apply_email, project_suggestions)
+                                   language, apply_method, decision, apply_email, project_suggestions,
+                                   via_recruiter, recruiter_reason)
         return {"job_id": job_id, "status": status}
 
 
@@ -244,6 +250,9 @@ def render_documents(job_id: int, doc_language: str, cv_content: dict[str, Any] 
 
     with _db() as conn:
         job = jobs.get_job(conn, job_id)
+        if job.get("via_recruiter") in recruiters.TAGGED and not job.get("docs_requested"):
+            raise ValueError("this job is via a recruiter (core §16c): documents only when the user "
+                             "requests them; skip it")
         wanted = jobs.documents_to_write(conn, job.get("docs_requested"))
         if wanted == "cv" and (letter_content or not cv_content):
             raise ValueError("CV only for this job (docs_requested or the setting "

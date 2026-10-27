@@ -150,8 +150,9 @@ def test_docs_run_lists_written_and_waiting_jobs(conn):
     conn.execute("UPDATE jobs SET docs_requested = NULL WHERE id = ?", (done,))
     run = runs.finish_run(conn, run_id)
     msg = notify.run_message(conn, run, runs.summary_line(run))
-    assert msg.startswith("✍️ Requested documents: 1 written")
-    assert "<b>Job 1</b> – ACME, Mannheim (fit 72)" in msg and "⏳ Still waiting" in msg and "<b>Job 2</b>" in msg
+    assert msg.startswith("🔎 <b>Generate now</b>") and "\n1 written\n" in msg
+    assert "<b>📄 Documents ready (1)</b>\n• <b>Job 1</b>\n   ACME · Mannheim · fit 72 · " in msg
+    assert "<b>⏳ Still waiting (next run or Generate now) (1)</b>\n• <b>Job 2</b>" in msg
 
 
 def test_single_run_reports_the_score(conn):
@@ -159,7 +160,7 @@ def test_single_run_reports_the_score(conn):
     run_id = runs.start_run(conn, "single")
     jobs.evaluate_job(conn, jid, 66, **EVAL)
     run = runs.finish_run(conn, run_id)
-    assert "🧮 <b>Job 1</b> – ACME, Mannheim: fit 66 → shortlisted ✅" in notify.run_message(conn, run, "")
+    assert "• <b>Job 1</b>\n   ACME · Mannheim · fit 66 · shortlisted ✅ · " in notify.run_message(conn, run, "")
 
 
 def test_notification_toggles(conn, sent):

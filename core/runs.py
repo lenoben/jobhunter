@@ -173,7 +173,7 @@ def evaluated_jobs(conn: sqlite3.Connection, since: str, until: str | None = Non
     """Jobs Claude evaluated since `since` (new → shortlisted / skipped), best fit first."""
     return [dict(r) for r in conn.execute(
         """SELECT DISTINCT j.id, j.title, j.company, j.location, j.fit_score, h.to_status AS decision,
-                  j.docs_requested
+                  j.docs_requested, j.via_recruiter, j.recruiter_reason
            FROM status_history h JOIN jobs j ON j.id = h.job_id
            WHERE h.changed_at >= ? AND h.changed_at <= COALESCE(?, '9999') AND h.changed_by = 'claude'
              AND ((h.from_status = 'new' AND h.to_status IN ('shortlisted', 'skipped'))

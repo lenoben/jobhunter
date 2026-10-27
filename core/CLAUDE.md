@@ -311,8 +311,9 @@ in JSON — Claude only produces content.
 
 | Event | Message |
 |-------|---------|
-| Run finished | `🔎 Run 08:02 — 23 found · 6 new · 4 docs ready · 2 need you` |
-| Needs attention | `⚠️ <b>Backend Developer (m/w/d)</b> – Company, City: needs_login` + UI link |
+| Run finished | Since 2026-10-28 (§16c) one structured message: header `🔎 <b>Scheduled run</b> · 28.10. 08:02`, the counts `23 found · 6 new · 4 docs ready · 2 need you`, then sections with a bold heading and count (📄 Documents ready, ⭐ Shortlisted no documents yet, 🤝 Via a recruiter, ✍️ Motivation missing, ⚠️ Needs you, 📥 alert review, 🛠 Problems), each job as two lines (`• <b>Title</b>` / `Company · City · fit 72 · … · open`), and a final "Open JobHunter" link. `finish_run`'s `summary` line is still returned to the model but no longer used in Telegram |
+| Needs attention | In the ⚠️ section, with the reason in plain words (`notify.REASONS`, e.g. "login needed") + UI link |
+| Job reminder | `⏰ Reminder · 30.10.2026 09:00`, title + company, the user's note, "Open in JobHunter", and where to apply ("Apply here" link, or "Write an email" `mailto:` + the address) — §16c |
 | Source error | `❌ linkedin failed this run (others OK)`, only when the source gave nothing in **all** its searches. Otherwise `⚠️ linkedin: no results for 2 of 6 filters` (soft) or `⚠️ ba_jobsuche: errors in 1 of 6 filters`. Migration 008 `runs.source_searches` counts searches per source; errors carry their `filter_id`. Run status: `partial` only for a real error or a source that failed completely; a few "no results" keep it `ok` |
 | Run failed | `🛑 Run failed: <short reason> — see logs/<file>`, plus `Cause: …` from the last `Error: ` line in the log (2026-10-26, e.g. a provider without a model). The reason names the engine (`claude` or the `LLM_PROVIDER`) |
 
@@ -652,3 +653,46 @@ which the server actions require. `db.deleteJob` stores the dedup keys in `delet
 adds the job again, R8) and deletes the row; the application and `status_history` go with it
 (ON DELETE CASCADE). `files.deleteJobFiles` then removes `output/<id>/`. Email drafts already in the
 mailbox are not touched.
+
+## 16c. Recruiters, job reminders, structured Telegram (2026-10-28, user request)
+
+Migration 020 (`recruiters` table; `jobs.via_recruiter`, `recruiter_reason`, `recruiter_id`,
+`recruiter_seen`, `remind_at`, `remind_note`, `reminded_at`; setting `notify_reminders`).
+
+**Recruiting agencies: documents only on request** (`core/recruiters.py`, user decisions: detection
+by the user's list **and** the scoring model; match the company field only):
+- `jobs.via_recruiter`: `list` (company on the user's list, `recruiter_id`), `detected` (the filter
+  model said so: `evaluate_job(via_recruiter=true, recruiter_reason=…)`, reason required),
+  `cleared` (the user said "not a recruiter": never tagged again), or NULL.
+- Matching (`recruiters.matches`): after `dedup.normalise` (case, GmbH/AG…, punctuation) the
+  company equals a listed name or starts with it as whole words ("Hays" → "Hays Professional
+  Solutions", not "Haystack"). Each entry has several spellings (`names` JSON).
+- `jobs.insert_job` tags every new job from the list (no tokens). `recruiters.add` tags all stored
+  jobs at once and returns them (the UI lists them); `update` re-tags; `remove` drops only its
+  `list` badges; a model's `detected` becomes `list` when the company is added.
+- **Enforced in code, not only in the skill:** `list_jobs(for_documents)` leaves out `list` /
+  `detected` jobs unless `docs_requested`; `render_documents` refuses them likewise. The job keeps
+  its status (a good one stays `shortlisted`), so the user can still request documents.
+- Shown: 🤝 badge in the Jobs list and on the job page, filter `?recruiter=1` (`?recruiter_id=N`),
+  a 🤝 count in the menu (tagged, not opened yet: `recruiter_seen`, set when the job page loads),
+  the 🤝 section of the run message, and `/recruiters` (ui/CLAUDE.md).
+- CLI: `cli.py recruiters list|add|update|remove|clear-job [--name X …] [--note] [--id] [--job]
+  [--json]` — the UI calls it, so the matching exists once.
+
+**Job reminders** (`core/reminders.py`): date + time + note on the job page. `remind_at` is the
+PC's local time `YYYY-MM-DD HH:MM`. `cli.py reminders --notify` sends each due one as its own
+Telegram message (§8 "Job reminder") and sets `reminded_at` only after Telegram accepted it (a
+failed send is retried next time; history note "reminder sent"). It runs every 15 minutes from the
+second scheduled task **JobHunter reminders** (`setup-task.ps1`, `pythonw.exe` so no window
+flashes; no LLM, no tokens). cron line in `run.sh`. `get_job` (MCP) hides the reminder fields and
+`recruiter_seen` from runs, like `user_notes`.
+
+**Run message** (`notify.run_message`, §8): rewritten from one long list into sections; tests in
+`tests/test_notify.py`, `tests/test_apply_favorites_notify.py`, `tests/test_recruiters_reminders.py`.
+
+**Also 2026-10-26/27** (commits 81b78d0, 9e786c1): "Run failed" names the cause from the log (§8);
+`core/agent.py` works with mcp ≥ 2 (`input_schema`, `is_error`) and was tested end to end with
+Gemini's free tier (preset `gemini`); Groq blocks VPN/datacenter IPs with 403 "Access denied"
+(`describe_error` explains 401/403); setup refuses an empty model id; `cli.py filters` shows the
+countries. Open points found in that test: LinkedIn "Worldwide" remote returns on-site jobs;
+`evaluate_job` accepts only de/en as posting language (a Portuguese ad was stored as en).

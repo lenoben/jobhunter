@@ -1,5 +1,5 @@
-import { needsYouCount, reviewCount } from '$lib/server/db';
+import { needsYouCount, recruiterUnseenCount, reviewCount } from '$lib/server/db';
 
 export function load() {
-	return { needsYou: needsYouCount(), review: reviewCount() };
+	return { needsYou: needsYouCount(), review: reviewCount(), recruiters: recruiterUnseenCount() };
 }

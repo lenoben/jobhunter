@@ -3,8 +3,9 @@
 	// confirm=yes, which the server action requires. No browser dialog, so it works the same on phones.
 	import { enhance } from '$app/forms';
 
-	let { action, id = null, question, small = false }: {
-		action: string; id?: number | null; question: string; small?: boolean;
+	// label: the verb on the buttons ("Delete", or e.g. "Remove" for a list entry)
+	let { action, id = null, question, small = false, label = 'Delete', title = 'Delete this job and its documents' }: {
+		action: string; id?: number | null; question: string; small?: boolean; label?: string; title?: string;
 	} = $props();
 	let asking = $state(false);
 </script>
@@ -14,9 +15,9 @@
 		{#if id !== null}<input type="hidden" name="id" value={id} />{/if}
 		<input type="hidden" name="confirm" value="yes" />
 		<span class="small">{question}</span>
-		<button class="danger" class:small>Yes, delete</button>
+		<button class="danger" class:small>Yes, {label.toLowerCase()}</button>
 		<button type="button" class="secondary" class:small onclick={() => (asking = false)}>Cancel</button>
 	</form>
 {:else}
-	<button type="button" class="ghost" class:small title="Delete this job and its documents" onclick={() => (asking = true)}>🗑{small ? '' : ' Delete'}</button>
+	<button type="button" class="ghost" class:small {title} onclick={() => (asking = true)}>🗑{small ? '' : ` ${label}`}</button>
 {/if}
