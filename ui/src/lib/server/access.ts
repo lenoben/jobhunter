@@ -28,6 +28,11 @@ function readUiEnv(): Record<string, string> {
 }
 
 const env = { ...readUiEnv(), ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('UI_'))) };
+// A misspelled key (e.g. UI_TUNNEL_HOST) silently turns a feature off, so name it at startup.
+const KNOWN_KEYS = ['UI_LAN', 'UI_LAN_SUBNETS', 'UI_SESSION_SECRET', 'UI_TUNNEL_HOSTS'];
+for (const k of Object.keys(env).filter((k) => !KNOWN_KEYS.includes(k))) {
+	console.warn(`JobHunter: unknown setting ${k} in .env is ignored (known: ${KNOWN_KEYS.join(', ')}).`);
+}
 const SECRET = env.UI_SESSION_SECRET ?? '';
 export const LAN_ENABLED = env.UI_LAN === '1' && SECRET.length >= 32;
 const SUBNETS = (env.UI_LAN_SUBNETS || '192.168.137.0/24').split(',').map((s) => s.trim()).filter(Boolean);
@@ -37,6 +42,9 @@ const SUBNETS = (env.UI_LAN_SUBNETS || '192.168.137.0/24').split(',').map((s) =>
 // names or ".domain" (any subdomain). Tunnel visitors need a paired device cookie, like hotspot devices.
 const TUNNEL_HOSTS = (env.UI_TUNNEL_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 export const TUNNEL_ENABLED = TUNNEL_HOSTS.length > 0 && SECRET.length >= 32;
+if ((TUNNEL_HOSTS.length > 0 || env.UI_LAN === '1') && SECRET.length < 32) {
+	console.warn('JobHunter: UI_SESSION_SECRET is missing or shorter than 32 characters; hotspot and tunnel access stay off.');
+}
 /** Device pairing is possible (hotspot and/or tunnel). */
 export const PAIRING_ENABLED = LAN_ENABLED || TUNNEL_ENABLED;
 

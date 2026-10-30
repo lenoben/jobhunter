@@ -517,6 +517,11 @@ To use your normal Wi-Fi as well, add its range to `UI_LAN_SUBNETS`, e.g.
 Devices on networks not listed are always refused. To sign out every device, change
 `UI_SESSION_SECRET`.
 
+### From anywhere: Cloudflare tunnel
+
+To open the UI from your phone away from home, run it behind a Cloudflare reverse tunnel. Devices
+pair with a code the same way. Step by step: [docs/reverse-tunnel.md](docs/reverse-tunnel.md).
+
 ## Scheduled runs and Telegram
 
 1. **Telegram** is set up by `cli.py setup`. By hand: create a bot with
