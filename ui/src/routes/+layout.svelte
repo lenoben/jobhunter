@@ -20,7 +20,8 @@
 		{ href: '/runs', label: 'Runs' },
 		{ href: '/stats', label: 'Statistics' },
 		{ href: '/profile', label: 'Profile' },
-		{ href: '/settings', label: 'Settings' }
+		{ href: '/settings', label: 'Settings' },
+		{ href: '/feedback', label: 'Feedback' }
 	];
 
 	function active(href: string) {
@@ -81,6 +82,8 @@
 		<a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer">{AUTHOR_URL.replace(/^https?:\/\/(www\.)?/, '')}</a>
 		<span class="footer-dot" aria-hidden="true">·</span>
 		<a href={REPO_URL} target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+		<span class="footer-dot" aria-hidden="true">·</span>
+		<a href="/feedback">Feedback</a>
 		<span class="grow"></span>
 		<span class="muted">Runs on your computer. You always submit your applications yourself.</span>
 	</div>

@@ -62,7 +62,7 @@ settings. Run it again any time; Enter keeps the current value.
 | Choice | Options | Default |
 |---|---|---|
 | **Target countries** | Any of about 70 countries, `remote` (remote jobs in any country) and `worldwide`. Each filter can override the list | Germany |
-| **AI** | `claude-code` (Claude Code on your subscription) or an OpenAI-compatible provider: Groq, OpenAI, OpenRouter, Mistral, a local Ollama, or any custom `/v1` URL. Setup lists the provider's models; you pick one for searching/scoring and one for writing | `claude-code` |
+| **AI** | `claude-code` (Claude Code on your subscription) or an OpenAI-compatible provider: Google Gemini, Groq, OpenAI, OpenRouter, Mistral, a local Ollama, or any custom `/v1` URL. Setup lists the provider's models; you pick one for searching/scoring and one for writing | `claude-code` |
 | **Drafts mailbox** | Any IMAP provider with app passwords (Yahoo, Gmail, GMX, web.de, T-Online, iCloud, or any host), or none | none |
 | **Job-alert mailbox** | The drafts mailbox, a different one (any provider), or none | none |
 | **Telegram** | Required: the wizard sets up the bot with you and sends a test message | — |
@@ -150,7 +150,7 @@ Open **PowerShell** (Start menu → type `PowerShell`) and install what's missin
 **Close and reopen PowerShell** after installing, so the new commands are found.
 
 Don't want Claude Code? Skip it and get an API key from an OpenAI-compatible provider instead,
-for example [Groq](https://console.groq.com/keys) (has a free tier), OpenAI, OpenRouter or
+for example [Google Gemini](https://aistudio.google.com/apikey) or [Groq](https://console.groq.com/keys) (both have a free tier), OpenAI, OpenRouter or
 Mistral, or run a local model with [Ollama](https://ollama.com). See
 [Your setup, your choices](#your-setup-your-choices) for the trade-offs.
 
@@ -454,6 +454,10 @@ npm start            # http://localhost:5173 (local only)
 ```
 
 `npm run dev` also works while developing. The UI has these pages:
+- **Feedback:** write an issue, improvement or suggestion for the developer, keep it as a draft
+  as long as you like, and delete drafts you no longer want. JobHunter never sends it: open it in
+  your mail app, save it as a mailbox draft, or copy it, and send it yourself. Nothing is attached;
+  the preview shows exactly what goes out.
 - **+ Add a job:** paste a link, plus the full posting if the page needs a login. With *Evaluate
   now*, Haiku scores it right away, and Sonnet writes the documents if it meets your threshold.
 - **Jobs:** filter and search; click a column header to sort (click again to reverse, e.g. by

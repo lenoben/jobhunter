@@ -1,6 +1,7 @@
 // Server-only DB access for the UI (CLAUDE.md §12). Same SQLite file as the Python core; the
 // schema is owned by core/migrations (Python) — this module never changes it.
 import Database from 'better-sqlite3';
+import { randomInt } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
@@ -602,4 +603,56 @@ export function updateSettings(values: Record<string, string>) {
 			stmt.run(k, v);
 		}
 	})();
+}
+
+// ── feedback tickets (core §16d) ────────────────────────────────────────────
+
+export type Ticket = {
+	id: number; ref: string; kind: string; title: string; body: string; reply_to: string | null;
+	include_details: number; status: 'draft' | 'sent' | 'resolved';
+	created_at: string; updated_at: string; sent_at: string | null;
+};
+export type TicketFields = Pick<Ticket, 'kind' | 'title' | 'body' | 'reply_to' | 'include_details'>;
+
+/** Drafts first, then the newest. */
+export function listTickets(): Ticket[] {
+	return getDb().prepare(`SELECT * FROM tickets ORDER BY status = 'draft' DESC, updated_at DESC, id DESC`).all() as Ticket[];
+}
+
+export function getTicket(id: number): Ticket | undefined {
+	return getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(id) as Ticket | undefined;
+}
+
+/** JH- plus 5 characters without the look-alikes 0/O and 1/I. */
+function newTicketRef(): string {
+	const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+	const exists = getDb().prepare('SELECT 1 FROM tickets WHERE ref = ?');
+	for (;;) {
+		const ref = 'JH-' + Array.from({ length: 5 }, () => chars[randomInt(chars.length)]).join('');
+		if (!exists.get(ref)) return ref;
+	}
+}
+
+export function createTicket(t: TicketFields): number {
+	const r = getDb().prepare(`INSERT INTO tickets (ref, kind, title, body, reply_to, include_details)
+		VALUES (@ref, @kind, @title, @body, @reply_to, @include_details)`).run({ ...t, ref: newTicketRef() });
+	return Number(r.lastInsertRowid);
+}
+
+/** Only a draft can change; returns false otherwise. */
+export function updateTicket(id: number, t: TicketFields): boolean {
+	return getDb().prepare(`UPDATE tickets SET kind = @kind, title = @title, body = @body, reply_to = @reply_to,
+		include_details = @include_details, updated_at = datetime('now') WHERE id = @id AND status = 'draft'`).run({ ...t, id }).changes > 0;
+}
+
+/** draft → sent → resolved, and back one step for a wrong click. */
+export function setTicketStatus(id: number, from: Ticket['status'], to: Ticket['status']): boolean {
+	return getDb().prepare(`UPDATE tickets SET status = @to, updated_at = datetime('now'),
+		sent_at = CASE @to WHEN 'draft' THEN NULL WHEN 'sent' THEN COALESCE(sent_at, datetime('now')) ELSE sent_at END
+		WHERE id = @id AND status = @from`).run({ id, from, to }).changes > 0;
+}
+
+/** Only a draft can be deleted: sent tickets stay as the record of what was reported. */
+export function deleteTicket(id: number): boolean {
+	return getDb().prepare(`DELETE FROM tickets WHERE id = ? AND status = 'draft'`).run(id).changes > 0;
 }

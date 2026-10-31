@@ -200,3 +200,12 @@ Before using the built UI (`npm start`), build it once: `cd ui; npm run build`. 
 
 **By hand:** after `.\setup-task.ps1`, set a reminder 2 minutes ahead on a job page and check
 that Telegram shows it within 15 minutes, and that the email link opens your mail app.
+
+## Added 2026-11-07 (all 251 passed)
+
+**`tests/test_feedback.py`** (new file): a ticket draft only ever goes to the developer's address,
+no mailbox gives a clear error, the technical details hold nothing personal, and `feedback-info`
+applies the tickets migration.
+
+**By hand:** on `/feedback`, check that **Open in my mail app** fills in a new mail, and that
+**Save as draft in my mailbox** puts it in Drafts (needs a SEND account).

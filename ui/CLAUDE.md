@@ -108,3 +108,11 @@ are empty for Claude Code users and blocked every save before 2026-10-25.
 - Checked 2026-10-28: `svelte-check` 0 errors; pages load; screenshots of /recruiters and a job page.
 - `/stats` (2026-10-28): **Rejected** and **Withdrawn** also as stat tiles (last 30 days / 12 months)
   and in "Right now" (links to `/?status=rejected|withdrawn`); the charts already had them.
+
+**Feedback** (user request 2026-11-07, core §16d): `/feedback` has a New ticket form and the list
+(drafts first, 🗑 on drafts only); menu item and footer link in `+layout.svelte`. `/feedback/[id]`:
+a draft has the form, a live preview and the send options (mail-app link, mailbox draft if a SEND
+account exists, copy buttons); **Mark as sent** and **Save as draft in my mailbox** save the form
+first. Sent/resolved tickets are read-only, with Mark as resolved / Reopen / Not sent after all.
+`$lib/tickets.ts` builds subject and text for preview and draft alike; SQL in `db.ts`, form
+parsing and `feedbackInfo()` (cached 5 minutes) in `$lib/server/tickets.ts`.

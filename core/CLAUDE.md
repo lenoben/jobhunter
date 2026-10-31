@@ -696,3 +696,19 @@ Gemini's free tier (preset `gemini`); Groq blocks VPN/datacenter IPs with 403 "A
 (`describe_error` explains 401/403); setup refuses an empty model id; `cli.py filters` shows the
 countries. Open points found in that test: LinkedIn "Worldwide" remote returns on-site jobs;
 `evaluate_job` accepts only de/en as posting language (a Portuguese ad was stored as en).
+
+## 16d. Feedback tickets (2026-11-07, user request)
+
+Users write issues, improvements and suggestions for the developer (`core/feedback.py`
+`DEV_EMAIL`, dev@lenoben.top) on `/feedback` (ui/CLAUDE.md). Migration 021 adds `tickets`.
+- **R1:** JobHunter never sends a ticket. `cli.py feedback-draft` puts it in the SEND mailbox's
+  Drafts folder (recipient fixed in `feedback.save_draft`); the rest is a `mailto:` link (only when
+  under 1900 characters, because long links get cut off) or copy buttons.
+- **Status** (`draft` → `sent` → `resolved`) is set by the user, since the app can't see the mail
+  go out. Only drafts can be edited or deleted, enforced in the SQL of `db.ts`. "Not sent after
+  all" puts a sent ticket back to draft.
+- **R3/R4:** nothing is attached. The optional details (`feedback.details`) are OS, provider name
+  and commit, shown in the preview; no user or host name, paths or keys.
+- `ref` (`JH-7F3K2`) is random, because numbers would clash between users.
+- `cli.py feedback-info` also runs `init_db`: after an update the page can open before the next
+  run has applied the migration.

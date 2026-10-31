@@ -343,6 +343,37 @@ def cmd_recruiters(args: argparse.Namespace) -> int:
     return 1 if "error" in result else 0
 
 
+def cmd_feedback_info(args: argparse.Namespace) -> int:
+    """What the feedback page needs (core §16d). Also applies migrations: after an update the page
+    may open before the next run has added the tickets table."""
+    import json
+
+    from core import feedback
+
+    db.init_db()
+    print(json.dumps(feedback.info(), ensure_ascii=False))
+    return 0
+
+
+def cmd_feedback_draft(args: argparse.Namespace) -> int:
+    """Saves a feedback ticket as a mailbox draft to the developer; never sends (R1)."""
+    import json
+    from pathlib import Path
+
+    from core import feedback
+
+    body = Path(args.text_file).read_text(encoding="utf-8")
+    try:
+        result = feedback.save_draft(args.subject, body)
+    except (RuntimeError, ValueError, OSError) as e:
+        result = {"error": str(e)}
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        print(result.get("error") or f"Draft saved in {result['folder']}")
+    return 1 if "error" in result else 0
+
+
 def cmd_reminders(args: argparse.Namespace) -> int:
     """Job reminders that are due (core §16c); --notify sends them via Telegram. Runs every 15
     minutes from the scheduled task "JobHunter reminders" (setup-task.ps1)."""
@@ -590,6 +621,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--job", type=int, help="Job id (clear-job)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_recruiters)
+
+    p = sub.add_parser("feedback-info", help="Print the developer's address and the optional technical details (JSON)")
+    p.add_argument("--json", action="store_true", help="Accepted for the UI; the output is always JSON")
+    p.set_defaults(func=cmd_feedback_info)
+    p = sub.add_parser("feedback-draft", help="Save a feedback ticket as a mailbox draft to the developer; never sends")
+    p.add_argument("--subject", required=True)
+    p.add_argument("--text-file", required=True, help="File with the mail text")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_feedback_draft)
 
     p = sub.add_parser("reminders", help="Job reminders that are due; --notify sends them via Telegram")
     p.add_argument("--notify", action="store_true")
