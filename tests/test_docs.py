@@ -1,6 +1,9 @@
+import json
+
 import pytest
 
 from core.applications import classify_document, document_filename
+from core import docs
 from core.docs import newest_first
 
 
@@ -37,3 +40,22 @@ def test_newest_first_orders_like_a_lebenslauf():
 
 def test_unknown_dates_go_last():
     assert [e["t"] for e in newest_first([{"t": "x", "from": "?"}, {"t": "y", "from": "01/2020", "to": "02/2020"}])] == ["y", "x"]
+
+
+@pytest.mark.parametrize("lang,ats,expected", [("en", True, True), ("en", False, False), ("de", True, False)])
+def test_ats_layout_is_for_english_cvs_only(tmp_path, monkeypatch, lang, ats, expected):
+    """core §16e: the setting cv_ats_friendly reaches the template for English CVs; the Lebenslauf stays tabular."""
+    seen = {}
+    monkeypatch.setattr(docs, "compile_pdf", lambda template, data: seen.update(data) or (b"%PDF", 1))
+    cv = json.loads((docs.EXAMPLES / f"cv_{lang}.json").read_text(encoding="utf-8"))
+    docs.render_pair(tmp_path, lang, cv, None, ats=ats)
+    assert seen["ats"] is expected
+
+
+def test_ats_default_is_off_with_germany_as_a_target(tmp_path, monkeypatch):
+    from core import db
+    monkeypatch.setenv("JOBHUNTER_DB", str(tmp_path / "a.db"))
+    db.init_db()
+    conn = db.connect()
+    assert db.get_settings(conn)["cv_ats_friendly"] == "0"
+    conn.close()

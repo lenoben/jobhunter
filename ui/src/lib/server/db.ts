@@ -540,6 +540,7 @@ export const SETTING_INFO: Record<string, {
 	llm_model_filter: { label: 'Other LLM provider (LLM_PROVIDER in .env): model id for searching and scoring', kind: 'text', optional: true },
 	llm_model_writer: { label: 'Other LLM provider: model id for CVs and cover letters', kind: 'text', optional: true },
 	default_documents: { label: 'Documents to write unless you pick per job (cv = CV only, both = CV + cover letter)', kind: 'choice', options: ['cv', 'both'] },
+	cv_ats_friendly: { label: 'ATS-friendly English CVs: dates after the job title, no side column, headings résumé parsers know (German CVs stay tabular)', kind: 'bool' },
 	min_fit_for_documents: { label: 'Write documents automatically from fit score', kind: 'int' },
 	max_tailored_per_run: { label: 'Max. jobs tailored per run', kind: 'int' },
 	max_evaluated_per_run: { label: 'Max. new jobs evaluated per run', kind: 'int' },

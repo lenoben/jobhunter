@@ -276,7 +276,8 @@ def render_documents(job_id: int, doc_language: str, cv_content: dict[str, Any] 
         return docs.render(job_id, doc_language, cv_content, letter_content, posting_text=posting,
                            photo=(profile.get("personal") or {}).get("photo"),
                            rejected=applications.rejected_inferences(conn), projects=profile.get("projects") or [],
-                           person=(profile.get("personal") or {}).get("name"), job_title=job["title"])
+                           person=(profile.get("personal") or {}).get("name"), job_title=job["title"],
+                           ats=db.get_settings(conn).get("cv_ats_friendly") == "1")
 
 
 @server.tool()

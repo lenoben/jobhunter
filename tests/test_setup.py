@@ -123,7 +123,9 @@ def test_telegram_keeps_a_working_bot(home):
 def test_countries_rejects_unknown_names(home):
     s = Script(answers=["Atlantis", "uk, United States"], secrets=[""])
     env, settings = setup.ask_countries(s.wizard(), {}, {})
-    assert settings == {"search_countries": '["uk", "usa"]'}
+    assert settings == {"search_countries": '["uk", "usa"]', "cv_ats_friendly": "1"}
+    again = Script(answers=["uk, usa"], secrets=[""])  # unchanged countries keep the user's choice
+    assert "cv_ats_friendly" not in setup.ask_countries(again.wizard(), {}, settings)[1]
     assert any("Unknown: Atlantis" in line for line in s.out)
 
 

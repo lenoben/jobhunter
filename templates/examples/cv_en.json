@@ -58,7 +58,7 @@
     }
   ],
   "skills": [
-    {"group": "Languages", "items": ["Go", "TypeScript", "Python", "C++", "SQL"]},
+    {"group": "Programming", "items": ["Go", "TypeScript", "Python", "C++", "SQL"]},
     {"group": "Frameworks", "items": ["React", "Next.js", "SvelteKit", "Fastify"]},
     {"group": "DevOps", "items": ["Docker", "GitHub Actions", "Nginx", "Linux"]}
   ],

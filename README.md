@@ -280,6 +280,10 @@ Leave this window open while you use the UI. The UI only answers on this PC unle
 your phone ([see below](#phones-and-tablets-on-the-pcs-mobile-hotspot)). Have a look around:
 **Filters** shows your search filters, and **Settings** has the limits, models and switches.
 
+One of those switches is **ATS-friendly English CVs**: the English CV is laid out so that the
+résumé parsers of application portals read it correctly (job title first, then the date, no side
+column). It is on unless Germany is one of your countries; German CVs keep the tabular layout.
+
 ### Step 9: Your first run
 
 Open a **second** PowerShell window in the `jobhunter` folder:

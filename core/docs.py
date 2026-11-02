@@ -261,9 +261,10 @@ def check_letter_style(letter: dict, projects: list[dict] | None = None, kind: s
 def render_pair(out_dir: Path, doc_language: str, cv_content: dict | None, letter_content: dict | None,
                 posting_text: str | None = None, photo: Path | None = None,
                 rejected: list[dict] | None = None, projects: list[dict] | None = None,
-                person: str | None = None, job_title: str | None = None) -> dict:
+                person: str | None = None, job_title: str | None = None, ats: bool = False) -> dict:
     """Render the CV and/or the letter (at least one; the user may ask for only one of them).
-    The output folder then holds exactly the rendered documents."""
+    The output folder then holds exactly the rendered documents. ats (setting cv_ats_friendly,
+    core §16e) lays an English CV out for résumé parsers; the German Lebenslauf stays tabular."""
     if doc_language not in LETTER_FILES:
         raise DocumentError("doc_language must be 'de' or 'en'")
     if not cv_content and not letter_content:
@@ -293,6 +294,7 @@ def render_pair(out_dir: Path, doc_language: str, cv_content: dict | None, lette
             cv[key] = newest_first(cv.get(key) or [])
         # German CV: photo only if profile.yaml sets one. English CVs never carry a photo.
         cv["photo"] = _photo_for_typst(photo) if doc_language == "de" else None
+        cv["ats"] = ats and doc_language == "en"
         data["cv"] = cv
 
     rendered, problems = {}, []
@@ -386,9 +388,9 @@ def render_motivation(out_dir: Path, doc_language: str, content: dict, posting_t
 def render(job_id: int, doc_language: str, cv_content: dict | None, letter_content: dict | None,
            posting_text: str | None = None, photo: Path | None = None,
            rejected: list[dict] | None = None, projects: list[dict] | None = None,
-           person: str | None = None, job_title: str | None = None) -> dict:
+           person: str | None = None, job_title: str | None = None, ats: bool = False) -> dict:
     return render_pair(output_dir(job_id), doc_language, cv_content, letter_content, posting_text, photo,
-                       rejected, projects, person, job_title)
+                       rejected, projects, person, job_title, ats)
 
 
 def render_test() -> list[dict]:
@@ -398,7 +400,7 @@ def render_test() -> list[dict]:
         cv = json.loads((EXAMPLES / f"cv_{lang}.json").read_text(encoding="utf-8"))
         letter = json.loads((EXAMPLES / f"letter_{lang}.json").read_text(encoding="utf-8"))
         title = "Backend-Entwickler (m/w/d)" if lang == "de" else "Backend Engineer (Go)"
-        results.append(render_pair(output_root() / "_render-test" / lang, lang, cv, letter, job_title=title))
+        results.append(render_pair(output_root() / "_render-test" / lang, lang, cv, letter, job_title=title, ats=True))
         motivation = json.loads((EXAMPLES / f"motivation_{lang}.json").read_text(encoding="utf-8"))
         results[-1] |= render_motivation(output_root() / "_render-test" / lang, lang, motivation, job_title=title)
     return results

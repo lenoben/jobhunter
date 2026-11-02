@@ -176,7 +176,15 @@ def ask_countries(w: Wizard, env: dict[str, str], settings: dict[str, str]) -> t
     w.say("  → " + ", ".join(map(countries.label, keys)))
     w.say("  Himalayas works without a key on a shared allowance; a free key (himalayas.app/api) is steadier.")
     key = w.secret("Himalayas API key (optional)", env.get("HIMALAYAS_API_KEY", ""))
-    return {"HIMALAYAS_API_KEY": key}, {"search_countries": json.dumps(keys)}
+    return {"HIMALAYAS_API_KEY": key}, country_settings(keys, settings)
+
+
+def country_settings(keys: list[str], settings: dict[str, str]) -> dict[str, str]:
+    new = {"search_countries": json.dumps(keys)}
+    if keys != countries.from_setting(settings.get("search_countries")):
+        # ATS-friendly English CVs (core §16e) unless Germany is a target; a later change in /settings stays.
+        new["cv_ats_friendly"] = "0" if "germany" in keys else "1"
+    return new
 
 
 def _ask_mail_account(w: Wizard, env: dict[str, str], prefix: str, label: str) -> dict[str, str]:

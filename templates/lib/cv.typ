@@ -17,14 +17,17 @@
 )
 
 #let cv(lang) = {
-  let L = labels.at(lang)
   let d = data
+  // ATS-friendly (core §16e, set by core/docs.py for English CVs): nothing sits in a left column,
+  // so résumé parsers read title → date → details, and headings use the words they look for.
+  let ats = get(d, "ats", default: false)
+  let L = labels.at(lang) + if ats { (profile: "Summary", certificates: "Certifications") } else { (:) }
 
   set document(title: get(d, "name", default: "") + " – " + L.cv, author: get(d, "name", default: ""))
   set page(
     paper: "a4",
     margin: (left: 20mm, right: 20mm, top: 18mm, bottom: 18mm),
-    footer: context {
+    footer: if ats { none } else { context {
       let total = counter(page).final().first()
       if total > 1 {
         set text(8pt, fill: muted)
@@ -32,7 +35,7 @@
         h(1fr)
         L.page + " " + str(counter(page).get().first()) + " " + L.of + " " + str(total)
       }
-    },
+    } },
   )
   set text(font: fonts, size: 10pt, lang: lang, fill: rgb("#1d232a"))
   set par(leading: 0.55em, spacing: 0.7em, justify: false)
@@ -54,23 +57,32 @@
     ]
   }
 
-  let row(left, right) = block(breakable: false, below: 0.75em, grid(
-    columns: (27mm, 1fr),
-    column-gutter: 4mm,
-    text(9pt, fill: muted, left),
-    right,
-  ))
+  let row(left, right) = if ats {
+    block(breakable: false, below: 0.6em)[#text(weight: "bold", left + ":") #right]
+  } else {
+    block(breakable: false, below: 0.75em, grid(
+      columns: (27mm, 1fr),
+      column-gutter: 4mm,
+      text(9pt, fill: muted, left),
+      right,
+    ))
+  }
+  // Title line with the date after it (ATS) instead of in the left column.
+  let dated(date, body) = if ats {
+    block(breakable: false, below: 0.75em)[#body.at(0)#h(1fr)#text(9pt, fill: muted, date)#body.at(1)]
+  } else {
+    row(date, body.at(0) + body.at(1))
+  }
 
   let entry(e, title-key, org-key, items-key) = {
     let org = (get(e, org-key), get(e, "place")).filter(nonempty).join(", ")
-    row(period(e))[
-      #text(weight: "bold", get(e, title-key, default: ""))
+    dated(period(e), (text(weight: "bold", get(e, title-key, default: "")), [
       #if nonempty(org) [ \ #text(style: "italic", fill: muted, org)]
       #let items = get(e, items-key, default: ())
       #if items.len() > 0 { v(0.15em); list(..items) }
       #let tech = get(e, "tech", default: ())
       #if tech.len() > 0 { text(8.5pt, fill: muted, L.tech + ": " + tech.join(", ")) }
-    ]
+    ]))
   }
 
   // ── Header ──────────────────────────────────────────────────────────────
@@ -152,7 +164,7 @@
   if certificates.len() > 0 {
     section(L.certificates)
     for c in certificates {
-      row(get(c, "date", default: ""), (get(c, "name"), get(c, "issuer")).filter(nonempty).join(" – "))
+      dated(get(c, "date", default: ""), ((get(c, "name"), get(c, "issuer")).filter(nonempty).join(" – "), []))
     }
   }
 

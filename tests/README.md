@@ -209,3 +209,13 @@ applies the tickets migration.
 
 **By hand:** on `/feedback`, check that **Open in my mail app** fills in a new mail, and that
 **Save as draft in my mailbox** puts it in Drafts (needs a SEND account).
+
+## Added 2026-11-10
+
+`tests/test_docs.py`: `test_ats_layout_is_for_english_cvs_only` (the setting reaches the template
+for English CVs only) and `test_ats_default_is_off_with_germany_as_a_target` (migration 022).
+`tests/test_setup.py::test_countries_rejects_unknown_names` also checks that the wizard turns the
+ATS layout on for non-German targets and keeps the user's choice when the countries don't change.
+
+**By hand:** `uv run python cli.py render-test`, then open the English CV in `output/_render-test/en`
+and paste it into a résumé parser (e.g. open-resume.com/resume-parser).

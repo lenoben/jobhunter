@@ -712,3 +712,19 @@ Users write issues, improvements and suggestions for the developer (`core/feedba
 - `ref` (`JH-7F3K2`) is random, because numbers would clash between users.
 - `cli.py feedback-info` also runs `init_db`: after an update the page can open before the next
   run has applied the migration.
+
+## 16e. ATS-friendly English CVs (2026-11-10, user request)
+
+Résumé parsers (OpenResume, Affinda, the ones inside Workday/Greenhouse) read the PDF's text line
+by line and look for known headings. Setting `cv_ats_friendly` (migration 022, `/settings`):
+- `1`: an **English** CV has no left column: the title comes first and the date sits right-aligned
+  on the same line (text order: title → date → employer → bullets), skills and languages are
+  `Group: items` lines, the headings are "Summary" and "Certifications", and there is no page
+  footer. `0`: the tabular layout as before. The German Lebenslauf is always tabular.
+- **Default:** `0` when Germany is a target country (the owner; tabular is the convention there),
+  else `1`. The migration reads `search_countries`; `cli.py setup` sets it when the countries
+  change, and leaves a later choice in `/settings` alone.
+- `render_documents` passes the setting to `docs.render(ats=…)`, which sets `cv.ats` for the
+  template (`templates/lib/cv.typ`); the model's `cv_content` is the same in both layouts.
+- Checked 2026-11-10 by extracting the text of the example CV with pypdf (not a project
+  dependency) and by eye. Not run through OpenResume or Affinda themselves.
