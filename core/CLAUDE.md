@@ -728,3 +728,26 @@ by line and look for known headings. Setting `cv_ats_friendly` (migration 022, `
   template (`templates/lib/cv.typ`); the model's `cv_content` is the same in both layouts.
 - Checked 2026-11-10 by extracting the text of the example CV with pypdf (not a project
   dependency) and by eye. Not run through OpenResume or Affinda themselves.
+
+## 16g. Browser setup page (2026-11-15, user request)
+
+**`/setup`** (ui/CLAUDE.md) replaces the text wizard for non-technical users; `cli.py setup` stays.
+`core/onboarding.py` reuses `core/setup.py` (`read_env`, `write_env`, `ensure_files`,
+`parse_filter_lines`, `country_settings`, `save`), so both write the same keys:
+- `cli.py setup-state`: what the page shows. **No secret values**, only `key_set` / `password_set`
+  / `token_set` (R3). It also creates `.env`, the profile file and the database if missing.
+- `cli.py setup-apply`: one step as JSON **on stdin** (secrets never on a command line or in a
+  temp file). Steps: `llm` (lists the provider's models after the key is saved; another
+  provider's model ids are dropped), `countries` (+ `cv_ats_friendly`, §16e), `mail` (both
+  mailboxes; logs in once so a wrong app password shows at once; empty address = not used),
+  `telegram` (token checked with `getMe`, saved at once; then the chat from `getUpdates` and a test
+  message; a new token picks a new chat), `permit`, `filters` (starter set or own lines; refused
+  when filters exist).
+- An empty secret field keeps the stored secret, but not across a provider or mailbox change.
+- Only the PC itself (`locals.local`): phones and tunnel visitors get 403, since the page writes
+  `.env`. On the PC, the layout sends `/` to `/setup` until search filters exist, and every page
+  there while there is no database.
+
+Tested 2026-11-15: onboarding in `tests/test_setup.py`; `/setup` live in a throwaway clone (first
+visit redirected, steps saved, errors shown, Jobs opened once filters existed). **Not tested:** the
+AI, mail and Telegram steps against real services from the page.

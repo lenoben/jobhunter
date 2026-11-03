@@ -29,7 +29,7 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
 **Where things are:**
 | Path | What |
 |---|---|
-| `core/` | Python logic: `db.py` + `migrations/` (schema, now 022), `search.py` + `sources/` (adapters), `checks.py` (§5a), `jobs.py` (status, evaluation, document selection), `docs.py` (rendering + checks), `notify.py` (Telegram), `runs.py`, `recruiters.py`, `reminders.py`, `followups.py`, `feedback.py`, `manual.py` (add job by link), `agent.py` (non-Claude LLM loop), `setup.py` (wizard), `countries.py`, `mail_*.py` |
+| `core/` | Python logic: `db.py` + `migrations/` (schema, now 022), `search.py` + `sources/` (adapters), `checks.py` (§5a), `jobs.py` (status, evaluation, document selection), `docs.py` (rendering + checks), `notify.py` (Telegram), `runs.py`, `recruiters.py`, `reminders.py`, `followups.py`, `feedback.py`, `manual.py` (add job by link), `agent.py` (non-Claude LLM loop), `setup.py` (wizard), `onboarding.py` (setup page), `countries.py`, `mail_*.py` |
 | `mcp_server/server.py` | The MCP tools the runs use (guards live here and in `core/`) |
 | `.claude/skills/job-hunt/SKILL.md` | The run workflow (stages filter / write / docs / evaluate / single / single-write) |
 | `.claude/skills/apply-assist/SKILL.md` | Interactive form filling, never submits |
@@ -54,7 +54,8 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
 - Feature history, newest last: core §12b–§12f (2026-10-16…22), §16 shareable setup and other
   LLM providers (10-25), §16a countries + remote boards (10-25), §16b delete (10-25), §16c
   recruiters, reminders, structured Telegram, author credit in the UI (10-28), §16d feedback
-  tickets (11-07), §16e ATS-friendly English CVs (11-10).
+  tickets (11-07), §16e ATS-friendly English CVs (11-10), §16g browser
+  setup page (11-15).
 
 ---
 
@@ -243,7 +244,7 @@ unrestricted work authorization (§5a phrases), flag `work_authorization`. The p
   §15 seed-filter notes · §16 shareable setup (setup wizard, LLM providers, mail presets, work permit) ·
   §16a target countries, Himalayas/Jobicy, required Telegram · §16b deleting a job ·
   §16c recruiters (documents only on request), job reminders, structured run message ·
-  §16d feedback tickets · §16e ATS-friendly English CVs
+  §16d feedback tickets · §16e ATS-friendly English CVs · §16g browser setup page
 - `ui/CLAUDE.md`: §12 web UI
 - Folder layout, the DB schema, the MCP tool list and the CLI commands are read from the code
   (`core/migrations/`, `mcp_server/server.py`, `cli.py --help`).

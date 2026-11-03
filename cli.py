@@ -343,6 +343,31 @@ def cmd_recruiters(args: argparse.Namespace) -> int:
     return 1 if "error" in result else 0
 
 
+def cmd_setup_state(args: argparse.Namespace) -> int:
+    """What the browser setup page shows (core §16g): no secret values, only whether they are set."""
+    import json
+
+    from core import onboarding
+
+    print(json.dumps(onboarding.state(), ensure_ascii=False))
+    return 0
+
+
+def cmd_setup_apply(args: argparse.Namespace) -> int:
+    """Saves one step of the browser setup page. The step is JSON on stdin, so secrets never
+    appear on a command line or in a file other than .env (R3)."""
+    import json
+
+    from core import onboarding
+
+    try:
+        result = onboarding.apply(json.loads(sys.stdin.buffer.read().decode("utf-8")))
+    except (ValueError, RuntimeError, OSError) as e:
+        result = {"error": str(e)}
+    print(json.dumps(result, ensure_ascii=False))
+    return 1 if "error" in result else 0
+
+
 def cmd_feedback_info(args: argparse.Namespace) -> int:
     """What the feedback page needs (core §16d). Also applies migrations: after an update the page
     may open before the next run has added the tickets table."""
@@ -622,6 +647,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_recruiters)
 
+    for name, func, text in (("setup-state", cmd_setup_state, "Print what the browser setup page shows (JSON, no secrets)"),
+                             ("setup-apply", cmd_setup_apply, "Save one setup step given as JSON on stdin")):
+        p = sub.add_parser(name, help=text)
+        p.add_argument("--json", action="store_true", help="Accepted for the UI; the output is always JSON")
+        p.set_defaults(func=func)
     p = sub.add_parser("feedback-info", help="Print the developer's address and the optional technical details (JSON)")
     p.add_argument("--json", action="store_true", help="Accepted for the UI; the output is always JSON")
     p.set_defaults(func=cmd_feedback_info)

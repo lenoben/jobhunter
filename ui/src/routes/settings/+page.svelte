@@ -23,6 +23,13 @@
 </div>
 
 {#if data.local}
+	<div class="card row">
+		<div class="grow">
+			<strong>Accounts and keys</strong>
+			<div class="muted small">AI provider, countries, mailboxes, Telegram and work permit: the first-time setup, any time.</div>
+		</div>
+		<a class="button secondary" href="/setup">Open setup</a>
+	</div>
 	<div class="card">
 		<div class="row">
 			<div class="grow">

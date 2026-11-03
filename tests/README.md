@@ -219,3 +219,13 @@ ATS layout on for non-German targets and keeps the user's choice when the countr
 
 **By hand:** `uv run python cli.py render-test`, then open the English CV in `output/_render-test/en`
 and paste it into a résumé parser (e.g. open-resume.com/resume-parser).
+
+## Added 2026-11-15
+
+`tests/test_setup.py`: `test_onboarding_state_never_holds_a_secret`,
+`test_onboarding_empty_secret_keeps_the_stored_one_but_not_across_providers`,
+`test_onboarding_telegram_waits_for_a_message`, `test_onboarding_countries_mail_permit_filters`
+(the browser setup page, core §16g).
+
+**By hand:** with a fresh database, `/setup` should open first; save each step with real keys
+(the mail step logs in, Telegram sends a test message).

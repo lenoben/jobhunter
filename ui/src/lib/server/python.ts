@@ -11,8 +11,9 @@ function uvPath(): string {
 	return existsSync(local) ? local : 'uv';
 }
 
-/** Runs `uv run python cli.py <args> --json`; `text` is passed as --text-file. */
-export function cli(args: string[], text?: string | null): any {
+/** Runs `uv run python cli.py <args> --json`; `text` is passed as --text-file, `stdin` on standard
+ * input (for secrets: never a file or the command line, R3). */
+export function cli(args: string[], text?: string | null, stdin?: string): any {
 	let dir: string | undefined;
 	try {
 		if (text) {
@@ -22,7 +23,7 @@ export function cli(args: string[], text?: string | null): any {
 			args = [...args, '--text-file', file];
 		}
 		const r = spawnSync(uvPath(), ['run', 'python', 'cli.py', ...args, '--json'], {
-			cwd: ROOT, encoding: 'utf-8', timeout: 90_000, windowsHide: true,
+			cwd: ROOT, encoding: 'utf-8', timeout: 90_000, windowsHide: true, input: stdin,
 			env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
 		});
 		const line = (r.stdout ?? '').trim().split('\n').pop() ?? '';

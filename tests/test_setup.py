@@ -144,3 +144,59 @@ def test_model_list_failure_is_explained_and_a_model_is_required(home, monkeypat
     assert settings == {"llm_model_filter": "small-model", "llm_model_writer": "big-model"}
     out = "\n".join(s.out)
     assert "HTTP 403: Access denied." in out and "VPN" in out and "A model id is required" in out
+
+
+# --- the browser setup page (core/onboarding.py, core §16g) -------------------------------------
+
+def test_onboarding_state_never_holds_a_secret(home):
+    import json
+
+    from core import onboarding
+    onboarding.apply({"step": "llm", "provider": "groq", "api_key": "gsk_secret",
+                      "llm_model_filter": "small-model", "llm_model_writer": "big-model"})
+    onboarding.apply({"step": "telegram", "token": "123:tg_secret"})
+    state = onboarding.state()
+    assert state["llm"]["key_set"] and state["llm"]["done"] and state["telegram"]["done"]
+    text = json.dumps(state)
+    assert "gsk_secret" not in text and "tg_secret" not in text
+    env = setup.read_env()
+    assert env["LLM_API_KEY"] == "gsk_secret" and env["TELEGRAM_CHAT_ID"] == "42" and SENT == [("123:tg_secret", "42")]
+
+
+def test_onboarding_empty_secret_keeps_the_stored_one_but_not_across_providers(home):
+    from core import onboarding
+    first = onboarding.apply({"step": "llm", "provider": "groq", "api_key": "gsk_1"})
+    assert first["models"] == ["big-model", "small-model"] and first["need_models"]
+    onboarding.apply({"step": "llm", "provider": "groq", "llm_model_filter": "small-model", "llm_model_writer": "big-model"})
+    assert setup.read_env()["LLM_API_KEY"] == "gsk_1" and _settings()[0]["llm_model_writer"] == "big-model"
+    with pytest.raises(ValueError, match="API key"):
+        onboarding.apply({"step": "llm", "provider": "openai"})
+
+
+def test_onboarding_telegram_waits_for_a_message(home, monkeypatch):
+    from core import onboarding
+    monkeypatch.setattr(setup.notify, "get_chat_ids", lambda token: [])
+    r = onboarding.apply({"step": "telegram", "token": "123:abc"})
+    assert r["pending"] and r["bot"] == "jh_bot" and not SENT
+    assert setup.read_env()["TELEGRAM_BOT_TOKEN"] == "123:abc" and not onboarding.state()["telegram"]["done"]
+
+
+def test_onboarding_countries_mail_permit_filters(home, monkeypatch):
+    from core import onboarding
+    with pytest.raises(ValueError, match="Atlantis"):
+        onboarding.apply({"step": "countries", "countries": "Atlantis"})
+    onboarding.apply({"step": "countries", "countries": "uk, United States"})
+    logins = []
+    monkeypatch.setattr(onboarding.mail_drafts, "connect",
+                        lambda cfg: logins.append((cfg.address, cfg.host)) or type("C", (), {"logout": lambda self: None})())
+    with pytest.raises(ValueError, match="IMAP host"):
+        onboarding.apply({"step": "mail", "send_address": "me@example.org", "send_password": "pw"})
+    onboarding.apply({"step": "mail", "send_address": "me@gmail.com", "send_password": "ab cd"})
+    onboarding.apply({"step": "permit", "need": "no"})
+    onboarding.apply({"step": "filters", "lines": "Nursing: Registered Nurse"})
+    settings, filters = _settings()
+    env = setup.read_env()
+    assert settings["search_countries"] == '["uk", "usa"]' and settings["cv_ats_friendly"] == "1"
+    assert settings["work_permit_checks"] == "0" and [f.name for f in filters] == ["Nursing"]
+    assert logins == [("me@gmail.com", "imap.gmail.com")] and env["SEND_MAIL_APP_PASSWORD"] == "abcd"
+    assert env["ALERTS_MAIL_ADDRESS"] == ""

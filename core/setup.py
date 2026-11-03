@@ -187,6 +187,16 @@ def country_settings(keys: list[str], settings: dict[str, str]) -> dict[str, str
     return new
 
 
+def save(conn: sqlite3.Connection, env_updates: dict[str, str], setting_updates: dict[str, str]) -> None:
+    """One finished step: secrets and accounts into .env (R3), the rest into settings."""
+    if env_updates:
+        write_env(env_updates)
+    for k, v in setting_updates.items():
+        conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
+                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (k, v))
+    conn.commit()
+
+
 def _ask_mail_account(w: Wizard, env: dict[str, str], prefix: str, label: str) -> dict[str, str]:
     address = w.ask(f"{label} address", env.get(f"{prefix}_MAIL_ADDRESS", ""))
     out = {f"{prefix}_MAIL_ADDRESS": address}
@@ -333,13 +343,8 @@ def run(w: Wizard | None = None) -> int:
                      lambda: ask_mail(w, env),
                      lambda: ask_telegram(w, env), lambda: ({}, ask_work_permit(w, settings))):
             env_updates, setting_updates = step()
-            if env_updates:
-                write_env(env_updates)
-                env |= env_updates
-            for k, v in setting_updates.items():
-                conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
-                             "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (k, v))
-            conn.commit()
+            save(conn, env_updates, setting_updates)
+            env |= env_updates
         ask_filters(w, conn)
     finally:
         conn.close()

@@ -46,6 +46,12 @@ export function getDb(): Database.Database {
 	return db;
 }
 
+/** First start (core §16g): no database yet, or no search filter (the last setup step). */
+export function setupState(): 'no-db' | 'no-filters' | 'ok' {
+	if (!existsSync(DB_PATH)) return 'no-db';
+	return (getDb().prepare('SELECT COUNT(*) AS n FROM search_filters').get() as any).n ? 'ok' : 'no-filters';
+}
+
 // ── jobs ────────────────────────────────────────────────────────────────────
 
 export type JobQuery = {

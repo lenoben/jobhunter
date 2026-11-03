@@ -13,6 +13,7 @@ Part of the JobHunter blueprint (root `CLAUDE.md`, whose hard rules R1–R11 app
 | `/attention` | Only `needs_attention` jobs with reasons and what to do. For `inferred_facts`: the list (statement, where, basis) with **Approve** (→ `docs_ready`, sets `applications.inferred_approved_at`, `changed_by='user'`) and **Reject** (back to `shortlisted` for a re-render without them). |
 | `/filters` | List, create, edit, toggle active, delete search filters (all fields in §4), incl. `countries` (comma-separated, empty = setting `search_countries`; `ui/src/lib/countries.ts` mirrors `core/countries.py`). |
 | `/runs` | Run history with counts and per-source errors. |
+| `/setup` | First-time setup in the browser (core §16g): AI, countries, mail, Telegram, work permit, filters; one form per step. This PC only. Linked from Settings (Accounts and keys). |
 | `/settings` | `search_countries` (kind `countries`), `max_tailored_per_run`, `min_hours_between_runs`, Telegram on/off, the models (Claude Code and, for another provider, `llm_model_filter`/`llm_model_writer`), `work_permit_checks` (core §16), `cv_ats_friendly` (core §16e), "Run now" button (spawns `run.ps1` with trigger `manual`). |
 
 Server-side only DB access (`+page.server.ts`, form actions). Serve PDFs through a route that
@@ -116,3 +117,9 @@ account exists, copy buttons); **Mark as sent** and **Save as draft in my mailbo
 first. Sent/resolved tickets are read-only, with Mark as resolved / Reopen / Not sent after all.
 `$lib/tickets.ts` builds subject and text for preview and draft alike; SQL in `db.ts`, form
 parsing and `feedbackInfo()` (cached 5 minutes) in `$lib/server/tickets.ts`.
+
+**Setup page** (user request 2026-11-15, core §16g): `routes/setup` calls `cli.py setup-state` /
+`setup-apply` (`cli()` in `lib/server/python.ts` takes `stdin` for the secrets). Password fields are
+always empty with "saved — leave empty to keep it"; the action returns only the step name and
+Python's answer, never the posted values. `+layout.server.ts` redirects the PC to `/setup` while
+`db.setupState()` is `no-db` (every page) or `no-filters` (only `/`).
