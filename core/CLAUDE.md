@@ -729,7 +729,23 @@ by line and look for known headings. Setting `cv_ats_friendly` (migration 022, `
 - Checked 2026-11-10 by extracting the text of the example CV with pypdf (not a project
   dependency) and by eye. Not run through OpenResume or Affinda themselves.
 
-## 16g. Browser setup page (2026-11-15, user request)
+## 16f. Double-click installer (2026-11-11, user request)
+
+For non-technical Windows users (download the ZIP, no git, no terminal):
+- `install.bat` starts `install.ps1` with `-ExecutionPolicy Bypass`. Steps: uv (official install
+  script) and Node LTS (winget) if missing → `uv sync` → `cli.py setup` (the wizard, in the same
+  window; since 2026-11-15 `init-db`, setup moved to `/setup`, §16g) → `npm install` + `npm run build` in `ui/` → asks before `setup-task.ps1` → `run.bat
+  /setup` (was `start.bat /profile` until 2026-11-15). Each step is safe to repeat; an error keeps the window open and says to run it again.
+- `run.bat` (named `start.bat` until 2026-11-15) runs `npm start` and opens the browser (an optional first argument is the path).
+- `install.ps1` must stay ASCII (Windows PowerShell 5.1 reads a BOM-less script as ANSI) and
+  PowerShell 5.1 compatible: a clean PC has no `pwsh`. `.gitattributes` keeps `*.bat` as CRLF in the checkout.
+- Claude Code is not installed by it (login needed); the script says so when it's missing.
+- Tested 2026-11-11 in a throwaway clone: steps 1–3 with the real wizard (stdin closed → the
+  stop path), steps 4–6 with the wizard replaced by `init-db` and `start.bat` stubbed, and the
+  built UI served `/profile`. **Not tested:** a PC without uv/Node (the two install branches), the
+  SmartScreen prompt on a downloaded ZIP, and answering the wizard inside the installer window.
+
+## 16g. Browser setup page and uninstaller (2026-11-15, user request)
 
 **`/setup`** (ui/CLAUDE.md) replaces the text wizard for non-technical users; `cli.py setup` stays.
 `core/onboarding.py` reuses `core/setup.py` (`read_env`, `write_env`, `ensure_files`,
@@ -748,6 +764,15 @@ by line and look for known headings. Setting `cv_ats_friendly` (migration 022, `
   `.env`. On the PC, the layout sends `/` to `/setup` until search filters exist, and every page
   there while there is no database.
 
+**`uninstall.bat`** → `uninstall.ps1` (ASCII, PowerShell 5.1): asks first; removes the scheduled
+tasks whose action's working directory is **this** folder (another copy keeps its own),
+`.venv`, `ui/node_modules`, `ui/build`, `ui/.svelte-kit`; deletes `profile`, `data`, `output`,
+`logs`, `.env` only when the user types `DELETE` (case-sensitive); leaves uv and Node installed and
+the folder for the user to delete. A locked folder (JobHunter still open) stops it with "close the
+window first".
+
 Tested 2026-11-15: onboarding in `tests/test_setup.py`; `/setup` live in a throwaway clone (first
-visit redirected, steps saved, errors shown, Jobs opened once filters existed). **Not tested:** the
-AI, mail and Telegram steps against real services from the page.
+visit redirected, steps saved, errors shown, Jobs opened once filters existed); the uninstaller in a
+throwaway folder (keep and DELETE paths; the user's real tasks untouched; the task filter matches a
+real install's tasks). **Not tested:** the AI, mail and Telegram steps against real services from
+the page, and an actual task removal.

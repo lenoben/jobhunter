@@ -227,5 +227,6 @@ and paste it into a résumé parser (e.g. open-resume.com/resume-parser).
 `test_onboarding_telegram_waits_for_a_message`, `test_onboarding_countries_mail_permit_filters`
 (the browser setup page, core §16g).
 
-**By hand:** with a fresh database, `/setup` should open first; save each step with real keys
-(the mail step logs in, Telegram sends a test message).
+**By hand:** on a fresh copy, `install.bat` should open `/setup`; save each step with real keys
+(the mail step logs in, Telegram sends a test message). `uninstall.bat` in that copy should remove
+its two scheduled tasks.

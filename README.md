@@ -126,6 +126,32 @@ scheduled runs.
 | + | Add jobs by link or pasted text, full postings for alert jobs, descriptive PDF names | ✅ |
 | + | Shareable setup: `cli.py setup`, other LLM providers, any mail provider, work-permit switch | ✅ (macOS/Linux untested) |
 
+## Quick install on Windows (no terminal)
+
+1. On the project's GitHub page: **Code → Download ZIP**, then unpack it (right-click →
+   *Extract All*) to a folder such as `Documents\jobhunter`.
+2. Have your keys ready: see [Step 4](#step-4-get-your-passwords-and-keys-ready) below. Only
+   Telegram is required.
+3. Double-click **`install.bat`**. If Windows shows "Windows protected your PC", click
+   *More info → Run anyway*. It installs uv (Python) and Node.js if they're missing, installs
+   JobHunter's packages, builds the web UI, offers the daily automatic runs, and opens JobHunter
+   in your browser on the **Setup** page.
+4. On the Setup page, enter your AI provider, countries, mailboxes and Telegram, step by step
+   ([Step 5](#step-5-run-the-setup-wizard) explains each choice). Keys and passwords are saved
+   only in `.env` on your PC and never shown again.
+5. Then fill in your **Profile**. It's the only source of facts for your CVs.
+
+From then on, double-click **`run.bat`** to open JobHunter, and keep its window open while you
+use it. If the installer stops halfway, double-click `install.bat` again: what's done is kept.
+To change a key or mailbox later: **Settings → Open setup**. To use Claude Code instead of an
+API key, install it first (Step 1 below) and log in once.
+
+**Uninstall:** double-click **`uninstall.bat`**. It removes the scheduled runs and the installed
+packages, and deletes your profile, jobs and documents only if you type `DELETE`. Then delete the
+folder. uv and Node.js stay installed.
+
+The step-by-step tutorial below does the same by hand, and works on macOS and Linux too.
+
 ## Setup: a step-by-step tutorial
 
 This takes about 30–45 minutes the first time, and most of it is filling in your profile. You

@@ -36,6 +36,7 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
 | `cli.py` | Every command (`uv run python cli.py --help`); the UI calls it for logic that lives in Python |
 | `ui/` | SvelteKit app; all SQL in `ui/src/lib/server/db.ts`; Python calls via `lib/server/python.ts` |
 | `templates/` | Typst templates + example JSON for each document |
+| `install.bat` (→ `install.ps1`), `run.bat`, `uninstall.bat` (→ `uninstall.ps1`) | Double-click install, open and uninstall for non-technical Windows users (core §16f); setup in the browser at `/setup` (§16g) |
 | `run.ps1`, `run.sh`, `setup-task.ps1` | Runs and scheduling (tasks **JobHunter** 08:00/18:00 and **JobHunter reminders** every 15 min) |
 | `profile/`, `data/`, `output/`, `logs/`, `.env` | The user's private data (gitignored; R3/R4) — never print `.env` |
 | `tests/` | pytest, offline (fake HTTP/IMAP/Telegram, temp DBs); `tests/README.md` lists what each covers |
@@ -54,8 +55,8 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
 - Feature history, newest last: core §12b–§12f (2026-10-16…22), §16 shareable setup and other
   LLM providers (10-25), §16a countries + remote boards (10-25), §16b delete (10-25), §16c
   recruiters, reminders, structured Telegram, author credit in the UI (10-28), §16d feedback
-  tickets (11-07), §16e ATS-friendly English CVs (11-10), §16g browser
-  setup page (11-15).
+  tickets (11-07), §16e ATS-friendly English CVs (11-10), §16f double-click
+  installer (11-11), §16g browser setup page + uninstaller (11-15).
 
 ---
 
@@ -244,7 +245,8 @@ unrestricted work authorization (§5a phrases), flag `work_authorization`. The p
   §15 seed-filter notes · §16 shareable setup (setup wizard, LLM providers, mail presets, work permit) ·
   §16a target countries, Himalayas/Jobicy, required Telegram · §16b deleting a job ·
   §16c recruiters (documents only on request), job reminders, structured run message ·
-  §16d feedback tickets · §16e ATS-friendly English CVs · §16g browser setup page
+  §16d feedback tickets · §16e ATS-friendly English CVs ·
+  §16f double-click installer · §16g browser setup page
 - `ui/CLAUDE.md`: §12 web UI
 - Folder layout, the DB schema, the MCP tool list and the CLI commands are read from the code
   (`core/migrations/`, `mcp_server/server.py`, `cli.py --help`).
