@@ -8,7 +8,7 @@
 	// credit, the same for everyone who uses it, not the user's profile).
 	const AUTHOR = 'lenoben';
 	const AUTHOR_URL = 'https://www.lenoben.top';
-	const REPO_URL = 'https://github.com/lenoben/jobhunt';
+	const REPO_URL = 'https://github.com/lenoben/jobhunter';
 
 	const links = [
 		{ href: '/', label: 'Jobs' },

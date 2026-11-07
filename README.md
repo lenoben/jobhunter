@@ -189,7 +189,7 @@ Pick a folder for it (here `D:\projekte`), then:
 
 ```powershell
 cd D:\projekte
-git clone https://github.com/lenoben/jobhunt.git jobhunter
+git clone https://github.com/lenoben/jobhunter.git jobhunter
 cd jobhunter
 ```
 

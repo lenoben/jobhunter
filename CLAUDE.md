@@ -15,7 +15,7 @@ everything in a localhost web UI. **Applying is always finished by the human.**
 
 ## 0. Start here (new session)
 
-**What it is:** a local job-search assistant (author **lenoben**, `github.com/lenoben/jobhunt`,
+**What it is:** a local job-search assistant (author **lenoben**, `github.com/lenoben/jobhunter`,
 website `www.lenoben.top`, MIT license — a license change is on hold). The owner uses it
 in Germany (Claude Code on a Pro subscription, Yahoo mail, Telegram) and shares it with
 others (any country, any OpenAI-compatible LLM; core §16/§16a).
