@@ -776,3 +776,17 @@ visit redirected, steps saved, errors shown, Jobs opened once filters existed); 
 throwaway folder (keep and DELETE paths; the user's real tasks untouched; the task filter matches a
 real install's tasks). **Not tested:** the AI, mail and Telegram steps against real services from
 the page, and an actual task removal.
+
+## 16h. Gemini first, and the guide video (2026-11-16, user request)
+
+**Gemini first:** most people the project is shared with have no Claude subscription.
+`setup.suggested_provider(env)` returns `gemini` when the saved provider is still the default
+`claude-code`, `claude` is not installed and no `LLM_API_KEY` is set; the wizard and `/setup` start
+there. `/setup` lists Gemini first ("free tier, recommended to start"), labels every provider, and
+preselects a Flash model for scoring and a Pro model for writing from the provider's list (only as
+the first pick; a saved choice wins). `.env.example` keeps `claude-code` (the owner's setup).
+
+**Guide video** (`docs/video/`, its README): Remotion project, 39 scenes, English narration
+(edge-tts, voice Ava) with burned-in captions, built from a demo worktree with a made-up user.
+`scripts/demo_seed.py` refuses a main checkout. The demo's real folder path is swapped on screen
+(`DEMO_DIR`), because it contains the Windows user name.

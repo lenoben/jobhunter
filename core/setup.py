@@ -111,12 +111,22 @@ def ensure_files(w: Wizard) -> None:
         w.say("  profile/profile.yaml exists")
 
 
+def suggested_provider(env: dict[str, str]) -> str:
+    """The saved provider, except for a fresh install without Claude Code: then Gemini, whose free
+    tier most people start with (user decision 2026-11-16)."""
+    current = env.get("LLM_PROVIDER") or "claude-code"
+    if current == "claude-code" and not shutil.which("claude") and not env.get("LLM_API_KEY"):
+        return "gemini"
+    return current
+
+
 def ask_llm(w: Wizard, env: dict[str, str], settings: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
     w.say("\n3. AI that runs the search and writes the documents")
     w.say("  claude-code = Claude Code on your Claude subscription (best results, no API key).")
+    w.say("  No Claude subscription? gemini (Google) has a free tier: key at https://aistudio.google.com/apikey")
     w.say("  The others are OpenAI-compatible APIs with your own key. Open models invent facts more")
     w.say("  easily: check every CV and letter before you send it.")
-    current = env.get("LLM_PROVIDER") or "claude-code"
+    current = suggested_provider(env)
     provider = w.choose("Provider", LLM_CHOICES, current if current in LLM_CHOICES else "claude-code")
     out_env, out_settings = {"LLM_PROVIDER": provider}, {}
     if provider == "claude-code":

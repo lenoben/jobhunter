@@ -56,7 +56,8 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
   LLM providers (10-25), §16a countries + remote boards (10-25), §16b delete (10-25), §16c
   recruiters, reminders, structured Telegram, author credit in the UI (10-28), §16d feedback
   tickets (11-07), §16e ATS-friendly English CVs (11-10), §16f double-click
-  installer (11-11), §16g browser setup page + uninstaller (11-15).
+  installer (11-11), §16g browser setup page + uninstaller (11-15), §16h Gemini first + guide
+  video (11-16).
 
 ---
 
@@ -246,7 +247,7 @@ unrestricted work authorization (§5a phrases), flag `work_authorization`. The p
   §16a target countries, Himalayas/Jobicy, required Telegram · §16b deleting a job ·
   §16c recruiters (documents only on request), job reminders, structured run message ·
   §16d feedback tickets · §16e ATS-friendly English CVs ·
-  §16f double-click installer · §16g browser setup page
+  §16f double-click installer · §16g browser setup page · §16h Gemini first, guide video
 - `ui/CLAUDE.md`: §12 web UI
 - Folder layout, the DB schema, the MCP tool list and the CLI commands are read from the code
   (`core/migrations/`, `mcp_server/server.py`, `cli.py --help`).

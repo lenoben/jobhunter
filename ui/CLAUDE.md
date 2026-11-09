@@ -122,4 +122,5 @@ parsing and `feedbackInfo()` (cached 5 minutes) in `$lib/server/tickets.ts`.
 `setup-apply` (`cli()` in `lib/server/python.ts` takes `stdin` for the secrets). Password fields are
 always empty with "saved — leave empty to keep it"; the action returns only the step name and
 Python's answer, never the posted values. `+layout.server.ts` redirects the PC to `/setup` while
-`db.setupState()` is `no-db` (every page) or `no-filters` (only `/`).
+`db.setupState()` is `no-db` (every page) or `no-filters` (only `/`). Since 2026-11-16 the provider
+list starts with Gemini, with plain-language labels, and the model lists preselect Flash / Pro (core §16h).

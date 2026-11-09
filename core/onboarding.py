@@ -40,7 +40,8 @@ def state() -> dict:
         llm_done = (key_set or provider == "ollama") and all(settings.get(k) for k in ("llm_model_filter", "llm_model_writer"))
     telegram_done = bool(env.get("TELEGRAM_BOT_TOKEN") and env.get("TELEGRAM_CHAT_ID"))
     return {
-        "llm": {"provider": provider, "providers": setup.LLM_CHOICES, "base_url": env.get("LLM_BASE_URL", ""),
+        "llm": {"provider": provider, "suggested": setup.suggested_provider(env), "providers": setup.LLM_CHOICES,
+                "base_url": env.get("LLM_BASE_URL", ""),
                 "key_set": key_set, "claude_installed": claude, "claude_models": CLAUDE_MODELS,
                 "key_urls": {name: url for name, (_base, url) in agent.PROVIDERS.items() if url},
                 "model_filter": settings.get("model_filter") or "haiku",

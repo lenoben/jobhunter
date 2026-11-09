@@ -4,7 +4,7 @@
 	let { data, form } = $props();
 	const s = $derived(data.s);
 	// svelte-ignore state_referenced_locally
-	let provider = $state(data.s.llm.provider); // the saved provider is only the starting choice
+	let provider = $state(data.s.llm.suggested); // the saved one, or Gemini on a fresh PC without Claude Code
 	let starter = $state(true);
 	let busy = $state('');
 
@@ -19,6 +19,20 @@
 	const mine = (step: string) => (form?.step === step ? form : null);
 	const models = $derived((mine('llm') as any)?.models ?? []);
 	const telegram = $derived(mine('telegram') as any);
+	// Gemini (free tier) first: most people start there (user decision 2026-11-16).
+	const LABELS: Record<string, string> = {
+		gemini: 'Google Gemini — free tier, recommended to start',
+		'claude-code': 'Claude Code — needs a Claude subscription, best documents',
+		groq: 'Groq — free tier', openai: 'OpenAI', openrouter: 'OpenRouter', mistral: 'Mistral',
+		ollama: 'Ollama — a model on this PC', custom: 'Other OpenAI-compatible API'
+	};
+	const providers = $derived(['gemini', ...data.s.llm.providers.filter((p: string) => p !== 'gemini')]);
+	// A sensible first pick from the provider's list: a fast model for scoring, a strong one for writing.
+	const pick = (key: string) => {
+		const want = key === 'llm_model_filter' ? /flash(?!.*(lite|image|tts|live|audio))/ : /pro(?!.*(image|tts|vision))/;
+		const plain = models.filter((m: string) => !/(embed|image|tts|audio|vision|preview|exp)/i.test(m));
+		return s.llm[key] || plain.find((m: string) => want.test(m)) || plain[0] || models[0];
+	};
 </script>
 
 <svelte:head><title>Setup · JobHunter</title></svelte:head>
@@ -53,13 +67,13 @@
 <form class="card" method="POST" use:enhance={saving('llm')}>
 	<input type="hidden" name="step" value="llm" />
 	{@render head(1, 'AI that searches and writes', s.llm.done)}
-	<p class="muted small">Claude Code runs on your Claude subscription and gives the best documents. The others need an API key;
-		Google Gemini and Groq have a free tier.</p>
+	<p class="muted small">No subscription? Start with <strong>Google Gemini</strong>: its API key is free (a Google account is
+		enough). Claude Code needs a Claude subscription and writes the best documents.</p>
 	{@render result('llm', 'Saved.')}
 	<div>
 		<label for="provider">Provider</label>
 		<select id="provider" name="provider" bind:value={provider}>
-			{#each s.llm.providers as p}<option value={p}>{p}</option>{/each}
+			{#each providers as p}<option value={p}>{LABELS[p] ?? p}</option>{/each}
 		</select>
 	</div>
 	{#if provider === 'claude-code'}
@@ -96,7 +110,7 @@
 			{#each [['llm_model_filter', 'Model for searching and scoring'], ['llm_model_writer', 'Model for CVs and letters']] as [key, label]}
 				<div class="grow"><label for={key}>{label}</label>
 					{#if models.length}
-						<select id={key} name={key} value={s.llm[key] || models[0]}>
+						<select id={key} name={key} value={pick(key)}>
 							{#each models as m}<option value={m}>{m}</option>{/each}
 						</select>
 					{:else}

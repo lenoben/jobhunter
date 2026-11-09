@@ -200,3 +200,13 @@ def test_onboarding_countries_mail_permit_filters(home, monkeypatch):
     assert settings["work_permit_checks"] == "0" and [f.name for f in filters] == ["Nursing"]
     assert logins == [("me@gmail.com", "imap.gmail.com")] and env["SEND_MAIL_APP_PASSWORD"] == "abcd"
     assert env["ALERTS_MAIL_ADDRESS"] == ""
+
+
+def test_a_fresh_pc_without_claude_code_is_offered_gemini(monkeypatch):
+    """User decision 2026-11-16: most people start with Gemini's free tier."""
+    monkeypatch.setattr(setup.shutil, "which", lambda tool: None)
+    assert setup.suggested_provider({"LLM_PROVIDER": "claude-code"}) == "gemini"
+    assert setup.suggested_provider({"LLM_PROVIDER": "claude-code", "LLM_API_KEY": "k"}) == "claude-code"
+    assert setup.suggested_provider({"LLM_PROVIDER": "groq"}) == "groq"
+    monkeypatch.setattr(setup.shutil, "which", lambda tool: "C:/claude.exe")
+    assert setup.suggested_provider({}) == "claude-code"
