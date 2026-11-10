@@ -78,8 +78,10 @@ nav .brand-wrap .brand { margin-right: 0; padding-right: 0; }
 nav a.byline { padding: 0.1rem 0.45rem; font-size: 0.74rem; font-weight: 500; letter-spacing: 0.02em; color: var(--muted);
 	border: 1px solid var(--border); border-radius: 999px; line-height: 1.5; white-space: nowrap; }
 nav a.byline:hover { color: var(--accent); border-color: var(--accent); background: none; }
-.site-footer { border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.84rem; }
-.footer-inner { max-width: 1200px; margin: 0 auto; padding: 0.9rem 16px; display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; align-items: center; }
+/* sticky: stays at the bottom of the window however long the page is (user request 2026-11-16) */
+.site-footer { border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.84rem;
+	position: sticky; bottom: 0; z-index: 5; }
+.footer-inner { max-width: 1200px; margin: 0 auto; padding: 0.55rem 16px; display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; align-items: center; }
 .footer-inner a { color: var(--text); font-weight: 500; }
 .footer-inner a:hover { color: var(--accent); }
 .footer-brand { font-weight: 700; color: var(--text); }
@@ -163,8 +165,9 @@ legend { font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
 	header nav a { white-space: nowrap; }
 	header nav .brand { margin-right: 0.25rem; }
 	nav .brand-wrap { margin-right: 0.25rem; }
-	.footer-inner { padding: 0.8rem 12px; }
-	.footer-sep { display: none; }
+	/* one short line, so the sticky footer doesn't eat the small screen */
+	.footer-inner { padding: 0.4rem 12px; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+	.footer-sep, .footer-note { display: none; }
 
 	/* 16px stops iOS from zooming into a field; text fields in a row get a line of their own */
 	input[type='text'], input[type='number'], input[type='search'], input[type='url'], input[type='email'], input[type='date'], input[type='time'], select, textarea { font-size: 16px; }

@@ -85,6 +85,6 @@
 		<span class="footer-dot" aria-hidden="true">·</span>
 		<a href="/feedback">Feedback</a>
 		<span class="grow"></span>
-		<span class="muted">Runs on your computer. You always submit your applications yourself.</span>
+		<span class="muted footer-note">Runs on your computer. You always submit your applications yourself.</span>
 	</div>
 </footer>

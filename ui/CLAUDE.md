@@ -106,6 +106,8 @@ are empty for Claude Code users and blocked every save before 2026-10-25.
   ("Built by lenoben · lenoben.top · Source on GitHub"). These are the project author's credit
   (constants `AUTHOR`, `AUTHOR_URL`, `REPO_URL`), the same for everyone who uses the project — not
   taken from the user's profile. Styles in `app.css` (`.byline`, `.site-footer`, `.tag`).
+- Since 2026-11-16 the footer is sticky (`position: sticky; bottom: 0`), so it stays visible on long
+  pages. Below 700px it is one sideways-scrolling line without the "Runs on your computer" note.
 - Checked 2026-10-28: `svelte-check` 0 errors; pages load; screenshots of /recruiters and a job page.
 - `/stats` (2026-10-28): **Rejected** and **Withdrawn** also as stat tiles (last 30 days / 12 months)
   and in "Right now" (links to `/?status=rejected|withdrawn`); the charts already had them.
