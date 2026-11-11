@@ -7,8 +7,8 @@ if not exist build\handler.js (
     pause
     exit /b 1
 )
-echo JobHunter is starting. Your browser opens in a moment: http://localhost:5173
+echo JobHunter is starting. Your browser opens in a moment: http://localhost:5790
 echo Keep this window open while you use it. Close it to stop JobHunter.
-start "" /min cmd /c "timeout /t 4 >nul & start http://localhost:5173%~1"
+start "" /min cmd /c "timeout /t 4 >nul & start http://localhost:5790%~1"
 call npm start
 pause

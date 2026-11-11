@@ -108,7 +108,7 @@ def followup_text(job: dict, name: str) -> dict:
 def reminder_message(conn: sqlite3.Connection, found: dict[str, list[dict]]) -> str:
     from core.notify import _e, _place
 
-    base = get_settings(conn).get("ui_base_url", "http://localhost:5173").rstrip("/")
+    base = get_settings(conn).get("ui_base_url", "http://localhost:5790").rstrip("/")
     after, silent = _days(conn, "followup_after_days", 14), _days(conn, "followup_no_response_days", 42)
     item = lambda j: (f"• <b>{_e(j['title'])}</b>{_place(j)} · applied {_date(j['applied_at'], 'de')} "  # noqa: E731
                       f"({j['days']} days) · <a href=\"{base}/jobs/{j['id']}\">open</a>")

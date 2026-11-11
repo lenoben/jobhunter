@@ -88,7 +88,7 @@ Check by hand:
     the menu scrolls sideways; Runs / Needs you / Applications / Job boards show cards; no page
     scrolls sideways.
 17. **Tunnel:** `UI_TUNNEL_HOSTS=.trycloudflare.com` in `.env`, `cd ui; npm run build; npm start`, then
-    `cloudflared tunnel --url http://127.0.0.1:5173`. The tunnel URL redirects to `/login`; a code from
+    `cloudflared tunnel --url http://127.0.0.1:5790`. The tunnel URL redirects to `/login`; a code from
     Settings → Pair a device lets the phone in; saving a form works over the tunnel.
 
 ## Added 2026-10-19 (passed 2026-10-21)

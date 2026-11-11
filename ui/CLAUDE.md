@@ -4,7 +4,7 @@ Part of the JobHunter blueprint (root `CLAUDE.md`, whose hard rules R1–R11 app
 
 ---
 
-## 12. Web UI (`ui/`, SvelteKit at http://localhost:5173)
+## 12. Web UI (`ui/`, SvelteKit at http://localhost:5790)
 
 | Page | Content |
 |------|---------|
@@ -35,7 +35,7 @@ only reads from `output/`. Bind to `127.0.0.1` only. Simple, clean design; light
   `output/<id>/`.
 - Markdown (`notes.md`, fit notes) is rendered with raw HTML escaped.
 - Run it with `cd ui; npm run dev`, or `npm run build` + `npm start` (`serve.js`). Both bind to
-  `127.0.0.1:5173` unless `UI_LAN=1`.
+  `127.0.0.1:5790` unless `UI_LAN=1`.
 
 **Hotspot access** (user request 2026-10-15: devices on the PC's Mobile Hotspot). This deliberately
 relaxes "bind to 127.0.0.1 only":
@@ -75,7 +75,7 @@ reachable from the internet and its traffic passes through the tunnel provider.
   reports https to SvelteKit when cloudflared, from loopback only, sends `X-Forwarded-Proto: https`.
 - **Production server only** (`npm run build`, `npm start`). Vite's dev server serves its own file
   routes (`/@fs/`, `/src/…`) outside the guard, so `vite.config.ts` doesn't allow tunnel hosts.
-- Start: `cloudflared tunnel --url http://127.0.0.1:5173` (127.0.0.1, not localhost: the server
+- Start: `cloudflared tunnel --url http://127.0.0.1:5790` (127.0.0.1, not localhost: the server
   listens on IPv4 only). A quick tunnel gets a new URL each start, so devices pair again; a named
   tunnel with a fixed hostname keeps them paired.
 

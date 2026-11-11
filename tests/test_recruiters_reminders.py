@@ -126,7 +126,7 @@ def test_reminders_go_out_once_with_both_links(conn, sent):
     assert reminders.send_due(conn, now=datetime(2026, 10, 30, 9, 0)) == {"due": 1, "sent": 1}
     text = sent[-1]["text"]
     assert "⏰ <b>Reminder</b> · 30.10.2026 09:00" in text and "<b>Job 1</b> – ACME, Berlin" in text
-    assert "ask about the interview" in text and 'href="http://localhost:5173/jobs/1"' in text
+    assert "ask about the interview" in text and 'href="http://localhost:5790/jobs/1"' in text
     assert 'href="mailto:jobs@acme.example?subject=' in text and 'href="https://x.example/1">The posting' in text
     assert reminders.send_due(conn, now=datetime(2026, 10, 31)) == {"due": 0, "sent": 0}   # once only
 

@@ -47,17 +47,17 @@ npm start
 In a second terminal:
 
 ```powershell
-cloudflared tunnel --url http://127.0.0.1:5173
+cloudflared tunnel --url http://127.0.0.1:5790
 ```
 
-If `cloudflared` isn't on your PATH: `& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel --url http://127.0.0.1:5173`.
+If `cloudflared` isn't on your PATH: `& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel --url http://127.0.0.1:5790`.
 
 Use `127.0.0.1`, not `localhost`: the server only listens on IPv4. cloudflared prints an address
 like `https://random-words.trycloudflare.com`.
 
 ## 4. Pair your phone
 
-1. On the PC, open `http://127.0.0.1:5173/settings` → **Pair a device** to get a 6-digit code.
+1. On the PC, open `http://127.0.0.1:5790/settings` → **Pair a device** to get a 6-digit code.
    Codes can only be created on the PC itself. A code is valid for 10 minutes, works once, and is
    burned after 5 wrong tries.
 2. Open the tunnel address on your phone. It sends you to `/login`; enter the code there.
@@ -70,7 +70,7 @@ like `https://random-words.trycloudflare.com`.
   starts, so your phone has to pair again.
 - **A fixed address:** with a free Cloudflare account and your own domain, create a *named tunnel*
   with a fixed hostname (`cloudflared tunnel login`, `cloudflared tunnel create jobhunter`, then
-  route a hostname such as `jobs.example.com` to `http://127.0.0.1:5173`; see Cloudflare's docs).
+  route a hostname such as `jobs.example.com` to `http://127.0.0.1:5790`; see Cloudflare's docs).
   Put that hostname in `UI_TUNNEL_HOSTS` (e.g. `UI_TUNNEL_HOSTS=jobs.example.com`). Devices then
   stay paired across restarts.
 - **Telegram links:** links in Telegram messages use the `ui_base_url` setting. To open job links
@@ -81,7 +81,7 @@ like `https://random-words.trycloudflare.com`.
   (`UI_TUNNEL_HOSTS`, with S), that each key appears only once in `.env` (the last one wins), that
   the secret has ≥ 32 characters, and restart `npm start` after every `.env` change (it reads
   `.env` only at startup and warns about unknown keys there). Quick test on the PC:
-  `curl -s -o NUL -w "%{http_code}\n" -H "Host: test.trycloudflare.com" http://127.0.0.1:5173/`
+  `curl -s -o NUL -w "%{http_code}\n" -H "Host: test.trycloudflare.com" http://127.0.0.1:5790/`
   → `303` is right, `403` means `.env` isn't right yet.
 
 ## How it is protected

@@ -29,7 +29,7 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
 **Where things are:**
 | Path | What |
 |---|---|
-| `core/` | Python logic: `db.py` + `migrations/` (schema, now 022), `search.py` + `sources/` (adapters), `checks.py` (§5a), `jobs.py` (status, evaluation, document selection), `docs.py` (rendering + checks), `notify.py` (Telegram), `runs.py`, `recruiters.py`, `reminders.py`, `followups.py`, `feedback.py`, `manual.py` (add job by link), `agent.py` (non-Claude LLM loop), `setup.py` (wizard), `onboarding.py` (setup page), `countries.py`, `mail_*.py` |
+| `core/` | Python logic: `db.py` + `migrations/` (schema, now 023), `search.py` + `sources/` (adapters), `checks.py` (§5a), `jobs.py` (status, evaluation, document selection), `docs.py` (rendering + checks), `notify.py` (Telegram), `runs.py`, `recruiters.py`, `reminders.py`, `followups.py`, `feedback.py`, `manual.py` (add job by link), `agent.py` (non-Claude LLM loop), `setup.py` (wizard), `onboarding.py` (setup page), `countries.py`, `mail_*.py` |
 | `mcp_server/server.py` | The MCP tools the runs use (guards live here and in `core/`) |
 | `.claude/skills/job-hunt/SKILL.md` | The run workflow (stages filter / write / docs / evaluate / single / single-write) |
 | `.claude/skills/apply-assist/SKILL.md` | Interactive form filling, never submits |
@@ -44,7 +44,7 @@ the SvelteKit UI shows and edits it all. The human always submits (R1).
 **Working on it:**
 - Tests: `.venv/Scripts/python.exe -m pytest -q` (≈ 250 tests, ~1.5 min). UI type check:
   `cd ui; npx svelte-check --threshold error`. The user's UI usually runs on
-  `http://127.0.0.1:5173` (dev server, hot reload). Don't run `npm run build` unasked.
+  `http://127.0.0.1:5790` (dev server, hot reload; JobHunter's own port since 2026-11-16, migration 023 moves the stored `ui_base_url`). Don't run `npm run build` unasked.
 - A new migration: add `core/migrations/0NN_*.sql`, then `cli.py init-db` applies it (runs also do).
   The UI never migrates; it reads the same DB.
 - The user decides features from a short numbered plan; small fixes go straight in. Commit only

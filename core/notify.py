@@ -155,7 +155,7 @@ def run_message(conn: sqlite3.Connection, run: dict, summary: str = "") -> str:
                            source_problems, written_jobs)
 
     since, until, trigger = run["started_at"], run.get("finished_at"), run.get("trigger") or "scheduled"
-    base = get_settings(conn).get("ui_base_url", "http://localhost:5173").rstrip("/")
+    base = get_settings(conn).get("ui_base_url", "http://localhost:5790").rstrip("/")
 
     def entry(j: dict, *extra: str) -> list[str]:
         meta = [_e(x) for x in (j.get("company"), j.get("location")) if x]

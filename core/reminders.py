@@ -55,7 +55,7 @@ def due(conn: sqlite3.Connection, now: datetime | None = None) -> list[dict]:
 def message(conn: sqlite3.Connection, j: dict) -> str:
     from core.notify import _e, _place, link
 
-    base = get_settings(conn).get("ui_base_url", "http://localhost:5173").rstrip("/")
+    base = get_settings(conn).get("ui_base_url", "http://localhost:5790").rstrip("/")
     when = datetime.strptime(j["remind_at"], "%Y-%m-%d %H:%M").strftime("%d.%m.%Y %H:%M")
     lines = [f"⏰ <b>Reminder</b> · {_e(when)}", "", f"<b>{_e(j['title'])}</b>{_place(j)}"]
     if j.get("remind_note"):

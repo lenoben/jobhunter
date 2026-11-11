@@ -299,7 +299,7 @@ can see it in your mailbox.
 cd ui
 npm install          # once, and after updates
 npm run build        # once, and after updates
-npm start            # then open http://localhost:5173
+npm start            # then open http://localhost:5790
 ```
 
 Leave this window open while you use the UI. The UI only answers on this PC unless you allow
@@ -480,7 +480,7 @@ it has to list it with its reason. The job then shows up under *needs attention*
 cd ui
 npm install          # once
 npm run build        # once, and after updates
-npm start            # http://localhost:5173 (local only)
+npm start            # http://localhost:5790 (local only)
 ```
 
 `npm run dev` also works while developing. The UI has these pages:
@@ -542,12 +542,12 @@ The UI rejects requests from other websites. By default it only answers on this 
 2. Turn on **Windows Settings → Network → Mobile hotspot** and connect the phone to it.
 3. On the PC, open **Settings → Pair a device** to get a 6-digit code. It is valid for 10 minutes
    and works once.
-4. On the phone, open `http://192.168.137.1:5173/` and enter the code. The phone stays signed in
+4. On the phone, open `http://192.168.137.1:5790/` and enter the code. The phone stays signed in
    for a year.
 
 To use your normal Wi-Fi as well, add its range to `UI_LAN_SUBNETS`, e.g.
-`192.168.137.0/24,192.168.0.0/24`, and open `http://<PC address>:5173/` (here
-`http://192.168.0.157:5173/`). Do this only on a network you trust: the UI uses plain HTTP.
+`192.168.137.0/24,192.168.0.0/24`, and open `http://<PC address>:5790/` (here
+`http://192.168.0.157:5790/`). Do this only on a network you trust: the UI uses plain HTTP.
 Devices on networks not listed are always refused. To sign out every device, change
 `UI_SESSION_SECRET`.
 

@@ -362,6 +362,6 @@ def run(w: Wizard | None = None) -> int:
     w.say("  • fill in profile/profile.yaml, then check it:  uv run python cli.py check-profile")
     if env.get("SEND_MAIL_ADDRESS") or env.get("ALERTS_MAIL_ADDRESS"):
         w.say("  • test the mailbox:  uv run python cli.py mail-test   (--account alerts for alerts)")
-    w.say("  • web UI:  cd ui; npm install; npm run dev   → http://localhost:5173")
+    w.say("  • web UI:  cd ui; npm install; npm run dev   → http://localhost:5790")
     w.say("  • twice-daily runs: Windows  .\\setup-task.ps1   ·  macOS/Linux  see README (run.sh + cron)")
     return 0

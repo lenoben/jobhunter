@@ -13,6 +13,6 @@ const host = lan ? '0.0.0.0' : '127.0.0.1';
 
 export default defineConfig({
 	plugins: [sveltekit()],
-	server: { host, port: 5173, strictPort: true },
-	preview: { host, port: 5173, strictPort: true }
+	server: { host, port: 5790, strictPort: true },
+	preview: { host, port: 5790, strictPort: true }
 });

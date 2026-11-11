@@ -10,7 +10,7 @@ export function load({ locals, url }) {
 		info: SETTING_INFO,
 		local: locals.local,
 		purge: purgePreview(),
-		lan: { enabled: PAIRING_ENABLED, urls: LAN_ENABLED ? lanUrls(Number(url.port || 5173)) : [] }
+		lan: { enabled: PAIRING_ENABLED, urls: LAN_ENABLED ? lanUrls(Number(url.port || 5790)) : [] }
 	};
 }
 

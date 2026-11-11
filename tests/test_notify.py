@@ -42,7 +42,7 @@ def test_run_message_lists_failures_and_attention(conn):
     assert ("<b>⚠️ Needs you (1)</b>\n• <b>Backend Developer (m/w/d)</b>\n"
             "   Müller &lt;GmbH&gt; · Mannheim · work-permit question · ") in msg
     assert "<b>🛠 Problems</b>" in msg
-    assert 'href="http://localhost:5173/jobs/1"' in msg and "Fine job" not in msg
+    assert 'href="http://localhost:5790/jobs/1"' in msg and "Fine job" not in msg
 
 
 def test_partial_no_results_is_a_warning_not_a_failure(conn):
