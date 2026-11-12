@@ -740,6 +740,13 @@ For non-technical Windows users (download the ZIP, no git, no terminal):
 - `install.ps1` must stay ASCII (Windows PowerShell 5.1 reads a BOM-less script as ANSI) and
   PowerShell 5.1 compatible: a clean PC has no `pwsh`. `.gitattributes` keeps `*.bat` as CRLF in the checkout.
 - Claude Code is not installed by it (login needed); the script says so when it's missing.
+- Versions (2026-11-16, after a shared install failed on `uv sync` and `npm install`): `.python-version`
+  pins Python 3.12 (uv downloads it if the PC has only another version); `install.ps1` runs
+  `uv self update` on an existing uv (old uv can't read a newer `uv.lock`) and installs/upgrades
+  Node LTS via winget when `node -v` is below 22.12 (Vite 7 and better-sqlite3 13 need it), not
+  only when npm is missing. `ui/package.json` `engines` + `ui/.npmrc` `engine-strict=true` give a
+  clear error for a manual `npm install` on old Node. better-sqlite3 13 ships N-API builds for
+  win32-x64/arm64, so any Node >= 22 needs no compiler.
 - Tested 2026-11-11 in a throwaway clone: steps 1–3 with the real wizard (stdin closed → the
   stop path), steps 4–6 with the wizard replaced by `init-db` and `start.bat` stubbed, and the
   built UI served `/profile`. **Not tested:** a PC without uv/Node (the two install branches), the

@@ -170,7 +170,7 @@ Open **PowerShell** (Start menu → type `PowerShell`) and install what's missin
 |---|---|---|---|
 | **Git** | download the project | <https://git-scm.com/download/win> (the defaults are fine) | `git --version` |
 | **uv** | installs Python 3.12 and the dependencies for you | `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` | `uv --version` |
-| **Node.js LTS** | the web UI | <https://nodejs.org> (the LTS button) | `node --version` |
+| **Node.js LTS** (22.12 or newer) | the web UI | <https://nodejs.org> (the LTS button) | `node --version` |
 | **Claude Code** (recommended) | the AI that runs the search and writes your documents | <https://claude.com/claude-code>, then run `claude` once and log in with your Claude subscription | `claude --version` |
 
 **Close and reopen PowerShell** after installing, so the new commands are found.

@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "description": "JobHunter web UI (this PC; paired hotspot devices with UI_LAN=1). Reads/writes ../data/jobhunter.db.",
   "scripts": {
     "dev": "vite dev --host",
