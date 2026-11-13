@@ -211,8 +211,9 @@
 </nav>
 
 <style>
-	.sort { color: inherit; display: block; white-space: nowrap; }
-	.sort:hover { color: var(--accent); text-decoration: none; }
+	/* a ghost button: no fill until hover, so the header row stays calm */
+	.sort { color: inherit; white-space: nowrap; background: none; box-shadow: none; margin: -0.1rem -0.4rem; }
+	.sort:hover { color: var(--accent); background: var(--surface); }
 	.pager { margin-top: 0.8rem; }
 	.active-size { font-weight: 700; text-decoration: underline; }
 	.fav-cell { width: 1.8rem; padding-right: 0; }

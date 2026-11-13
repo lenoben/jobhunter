@@ -39,6 +39,21 @@
 		}
 	});
 
+	// The pressed form button shows a spinner until the answer is there (user request 2026-11-20).
+	// Cleared when a form result or a new page arrives; the timer covers forms whose enhance skips update().
+	let busyTimer: ReturnType<typeof setTimeout> | undefined;
+	const clearBusy = () => document.querySelectorAll('[aria-busy="true"]').forEach((b) => b.removeAttribute('aria-busy'));
+	function markBusy(e: SubmitEvent) {
+		e.submitter?.setAttribute('aria-busy', 'true');
+		clearTimeout(busyTimer);
+		busyTimer = setTimeout(clearBusy, 20000);
+	}
+	$effect(() => {
+		page.form;
+		page.url.href;
+		clearBusy();
+	});
+
 	function toggleTheme() {
 		const root = document.documentElement;
 		const dark = root.dataset.theme
@@ -50,6 +65,10 @@
 		} catch {}
 	}
 </script>
+
+<!-- touchstart listener: without it iOS Safari never shows :active, so the press animation is missing on phones -->
+<svelte:window onsubmitcapture={markBusy} />
+<svelte:body ontouchstart={() => {}} />
 
 <header>
 	<nav bind:this={navEl}>

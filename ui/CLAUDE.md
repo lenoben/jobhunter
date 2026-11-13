@@ -126,3 +126,15 @@ always empty with "saved — leave empty to keep it"; the action returns only th
 Python's answer, never the posted values. `+layout.server.ts` redirects the PC to `/setup` while
 `db.setupState()` is `no-db` (every page) or `no-filters` (only `/`). Since 2026-11-16 the provider
 list starts with Gemini, with plain-language labels, and the model lists preselect Flash / Pro (core §16h).
+
+**Clickables** (user request 2026-11-20): everything clickable looks like a button and reacts.
+- `app.css`: one button shape (`button`, `.button`; radius `--radius`, min-height 2.25rem, 2.5rem on
+  phones). Variants: default (main action), `.secondary`, `.danger`, `.ghost` (transparent); `.small`
+  is a size. Don't add more variants or one-off button styles in pages.
+- Links (`a` without `.button`) are soft buttons: tinted, rounded, inline-block. The rule uses
+  `:where()` (zero specificity), so nav, footer, tags and page styles override it.
+- Hover lifts (shadow), `:active` sinks (`scale(.96)`, 120 ms ease) on buttons, links and
+  `summary`; a focus ring on `:focus-visible`; `:disabled` fades; `prefers-reduced-motion` keeps the
+  colour change and drops the movement. `<svelte:body ontouchstart>` makes `:active` fire on iOS.
+- Busy: `+layout.svelte` sets `aria-busy` on the button that submitted a form (spinner via CSS)
+  and clears it when `page.form` or the URL changes, or after 20 s.
