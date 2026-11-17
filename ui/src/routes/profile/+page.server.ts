@@ -1,11 +1,13 @@
 import { fail } from '@sveltejs/kit';
 import { listFilters } from '$lib/server/db';
-import { motivations, profilePath, profileText, saveMotivations, saveProfileText } from '$lib/server/profile';
+import { aiPrompt, motivations, profilePath, profileText, saveMotivations, saveProfileText } from '$lib/server/profile';
 
 export function load() {
 	const filters = listFilters() as any[];
+	const names = filters.filter((f) => f.active).map((f) => f.name);
 	return {
-		motivations: motivations(filters.filter((f) => f.active).map((f) => f.name)),
+		motivations: motivations(names),
+		prompt: aiPrompt(names),
 		text: profileText(),
 		path: profilePath()
 	};

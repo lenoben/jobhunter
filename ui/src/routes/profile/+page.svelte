@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import CopyButton from '$lib/CopyButton.svelte';
 
 	let { data, form } = $props();
 	const empty = $derived(data.motivations.filter((m: any) => m.filter && !m.text).length);
@@ -38,9 +39,20 @@
 	<div><button>Save motivation</button></div>
 </form>
 
-<details class="card" open={form?.saved === 'raw' || (form?.error && form?.text !== undefined)}>
+<details class="card" open={!data.text.trim() || form?.saved === 'raw' || (form?.error && form?.text !== undefined)}>
 	<summary><strong>Whole profile (YAML)</strong> <span class="muted small">experience, education, skills, projects, availability …</span></summary>
 	<form method="POST" action="?/raw" use:enhance={keep} style="display: grid; gap: 0.6rem; margin-top: 0.8rem">
+		<div class="ai-help">
+			<div class="grow">
+				<strong>Let an AI fill this in</strong>
+				<p class="muted small" style="margin: 0.2rem 0 0">Copy this prompt into any AI chat (Gemini, ChatGPT, Claude …).
+					It asks you about your experience, education and skills, then gives you the finished file. Paste it into the
+					box below and press <em>Check and save</em>.</p>
+			</div>
+			<CopyButton text={data.prompt} label="Copy prompt" />
+		</div>
+		<details><summary class="small">Show the prompt</summary>
+			<pre class="small prompt">{data.prompt}</pre></details>
 		<p class="muted small" style="margin: 0">Dates as MM/YYYY. Keep the structure; a save that breaks a required
 			section is refused. File: <code>{data.path}</code></p>
 		<textarea name="text" rows="30" spellcheck="false" style="width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem"
@@ -48,3 +60,9 @@
 		<div><button>Check and save</button></div>
 	</form>
 </details>
+
+<style>
+	.ai-help { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; padding: 0.7rem 0.8rem;
+		border: 1px dashed var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+	.prompt { max-height: 18rem; overflow: auto; white-space: pre-wrap; background: var(--surface-2); padding: 0.6rem; border-radius: 6px; }
+</style>

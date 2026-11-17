@@ -139,7 +139,9 @@ scheduled runs.
 4. On the Setup page, enter your AI provider, countries, mailboxes and Telegram, step by step
    ([Step 5](#step-5-run-the-setup-wizard) explains each choice). Keys and passwords are saved
    only in `.env` on your PC and never shown again.
-5. Then fill in your **Profile**. It's the only source of facts for your CVs.
+5. Then fill in your **Profile**. It's the only source of facts for your CVs. Under **Whole
+   profile (YAML)**, **Copy prompt** gives you a prompt for any AI chat (Gemini, ChatGPT, Claude …):
+   it interviews you and returns the finished file to paste back.
 
 From then on, double-click **`run.bat`** to open JobHunter, and keep its window open while you
 use it. If the installer stops halfway, double-click `install.bat` again: what's done is kept.

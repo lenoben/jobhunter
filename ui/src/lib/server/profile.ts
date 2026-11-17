@@ -28,6 +28,40 @@ export function profileText(): string {
 	return existsSync(path) ? readFileSync(path, 'utf-8') : '';
 }
 
+/** A prompt for any AI chat that interviews the user and returns a complete profile.yaml
+ *  (user request 2026-11-20). The template is profile.example.yaml without its file comments. */
+export function aiPrompt(filterNames: string[]): string {
+	let template = '';
+	try {
+		template = readFileSync(join(ROOT, 'profile.example.yaml'), 'utf-8')
+			.replace(/^#.*\n/gm, '')
+			.replace(/\s*# TODO:.*/g, '')
+			.replace('<YOUR_ADDRESS>@myyahoo.com', 'max@example.com')
+			.trim();
+	} catch {}
+	const names = filterNames.length ? filterNames.map((n) => `"${n}"`).join(', ') : 'none yet (leave motivation empty)';
+	return `I use JobHunter, an app that writes a tailored CV and cover letter for each job from one profile file (YAML). Please help me create my complete profile.yaml.
+
+How to work with me:
+1. Interview me first, a few questions at a time, one topic after the other: contact details; a short professional summary; every job (company, role, city, from/to, what I did, results with numbers, tools); education (degree, institution, dates, grade, focus, thesis); skills; spoken languages with CEFR levels and certificates; projects (what, link, tech); certificates; availability (hours per week, earliest start); salary expectation; work permit / residence status; why I want each kind of job I am searching for.
+2. Ask follow-up questions until you have comprehensive context: missing dates, results, tools, links. If I paste my CV or LinkedIn profile, use it and ask only about what is missing or unclear.
+3. Before writing the file, list what is still empty and ask whether I want to add it.
+4. Then answer with only the finished YAML in one code block, so I can paste it into JobHunter.
+
+Format:
+- Keep exactly the structure and key names of the template below. Optional fields I don't have: null, or leave the list empty.
+- Dates as MM/YYYY; "present" for an ongoing job or study.
+- Keys ending in _de are German, _en English: fill in both (translate what I give you).
+- Experience bullets: short, starting with a verb, showing what I achieved.
+- The keys under "motivation" are my job-search categories: ${names}. Write 2–4 sentences per category in my own voice.
+- Put text in double quotes when it contains a colon or a #.
+
+Template:
+\`\`\`yaml
+${template}
+\`\`\``;
+}
+
 /** Motivation entries for the filter names (in that order), then any other existing keys. */
 export function motivations(filterNames: string[]): { name: string; text: string; filter: boolean }[] {
 	const m = loadProfile()?.motivation ?? {};
