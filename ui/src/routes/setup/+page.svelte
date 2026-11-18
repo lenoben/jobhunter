@@ -27,12 +27,8 @@
 		ollama: 'Ollama — a model on this PC', custom: 'Other OpenAI-compatible API'
 	};
 	const providers = $derived(['gemini', ...data.s.llm.providers.filter((p: string) => p !== 'gemini')]);
-	// A sensible first pick from the provider's list: a fast model for scoring, a strong one for writing.
-	const pick = (key: string) => {
-		const want = key === 'llm_model_filter' ? /flash(?!.*(lite|image|tts|live|audio))/ : /pro(?!.*(image|tts|vision))/;
-		const plain = models.filter((m: string) => !/(embed|image|tts|audio|vision|preview|exp)/i.test(m));
-		return s.llm[key] || plain.find((m: string) => want.test(m)) || plain[0] || models[0];
-	};
+	// First pick: the saved model, else Python's suggestion (agent.suggest_models: free-tier friendly).
+	const pick = (key: string) => s.llm[key] || (mine('llm') as any)?.suggested?.[key] || models[0];
 </script>
 
 <svelte:head><title>Setup · JobHunter</title></svelte:head>
@@ -101,7 +97,10 @@
 			<div><label for="api_key">API key
 					{#if s.llm.key_urls[provider]}— create one at <a href={s.llm.key_urls[provider]} target="_blank" rel="noopener noreferrer">{s.llm.key_urls[provider]}</a>{/if}</label>
 				<input type="password" id="api_key" name="api_key" class="wide" autocomplete="off"
-					placeholder={s.llm.key_set && provider === s.llm.provider ? 'saved — leave empty to keep it' : 'paste the key'} /></div>
+					placeholder={s.llm.key_set && provider === s.llm.provider ? 'saved — leave empty to keep it' : 'paste the key'} />
+				{#if provider === 'gemini'}<p class="muted small" style="margin: 0.3rem 0 0">A free key is enough. JobHunter
+					suggests the Flash models, which have the most free requests per day; you can change them here or in
+					Settings at any time.</p>{/if}</div>
 		{/if}
 		{#if (mine('llm') as any)?.need_models}
 			<div class="flash">Key saved. Now pick a fast, cheap model for searching and a strong one for writing, then save again.</div>

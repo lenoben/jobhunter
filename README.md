@@ -148,6 +148,10 @@ use it. If the installer stops halfway, double-click `install.bat` again: what's
 To change a key or mailbox later: **Settings → Open setup**. To use Claude Code instead of an
 API key, install it first (Step 1 below) and log in once.
 
+**AI models:** with Google Gemini a free key is enough. Setup lists only Google's chat models, best
+first, and picks the Flash models for you (they have the most free requests per day). To change
+them later: **Settings → Load the models from my AI provider**, then pick from the list or type an id.
+
 **Uninstall:** double-click **`uninstall.bat`**. It removes the scheduled runs and the installed
 packages, and deletes your profile, jobs and documents only if you type `DELETE`. Then delete the
 folder. uv and Node.js stay installed.

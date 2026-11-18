@@ -6,6 +6,7 @@ them to .env (R3). An empty secret field keeps the stored one.
 
 from __future__ import annotations
 
+import json
 import shutil
 import sqlite3
 
@@ -93,6 +94,9 @@ def _llm(p: dict, env: dict[str, str], settings: dict[str, str], conn: sqlite3.C
     # Models of another provider don't exist here: forget them until the user picks new ones.
     chosen = {k: _text(p, k) or ("" if changed else settings.get(k, "")) for k in ("llm_model_filter", "llm_model_writer")}
     result["need_models"] = not all(chosen.values())
+    result["suggested"] = agent.suggest_models(result["models"])
+    if result["models"]:  # kept for the model lists in /settings (changeable later, user request 2026-11-20)
+        chosen["llm_models"] = json.dumps(result["models"])
     return out_env, chosen, result
 
 

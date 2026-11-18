@@ -99,3 +99,26 @@ def test_main_prints_errors_from_inside_the_mcp_session(monkeypatch, capsys):
 def test_describe_error_reads_geminis_list_body():
     r = httpx.Response(404, json=[{"error": {"message": "model retired"}}], request=httpx.Request("GET", "https://x"))
     assert agent.describe_error(httpx.HTTPStatusError("", request=r.request, response=r)) == "HTTP 404: model retired"
+
+
+def test_rank_models_keeps_chat_models_best_first():
+    """Gemini's list: only chat models, pro > flash > flash-lite, newest and stable first (2026-11-20)."""
+    from core import agent
+
+    ids = ["models/gemini-2.0-flash", "models/gemini-2.5-pro", "models/gemini-2.5-flash", "models/gemini-2.5-flash-lite",
+           "models/gemini-2.5-flash-preview-09-2025", "models/text-embedding-004", "models/gemini-2.5-flash-image",
+           "models/imagen-4.0-generate-001", "models/gemma-3-27b-it", "models/gemini-2.5-flash-preview-tts"]
+    ranked = agent.rank_models(ids)
+    assert ranked == ["models/gemini-2.5-pro", "models/gemini-2.5-flash", "models/gemini-2.0-flash",
+                      "models/gemini-2.5-flash-preview-09-2025", "models/gemini-2.5-flash-lite"]
+    # free key: flash writes, flash-lite does the many scoring calls
+    assert agent.suggest_models(ranked) == {"llm_model_filter": "models/gemini-2.5-flash-lite",
+                                            "llm_model_writer": "models/gemini-2.5-flash"}
+
+
+def test_rank_models_always_offers_two():
+    from core import agent
+
+    assert agent.rank_models(["text-embedding-3", "gpt-x"]) == ["gpt-x", "text-embedding-3"]
+    assert agent.suggest_models(["a-model", "b-model"]) == {"llm_model_filter": "b-model", "llm_model_writer": "a-model"}
+    assert agent.suggest_models([]) == {"llm_model_filter": "", "llm_model_writer": ""}

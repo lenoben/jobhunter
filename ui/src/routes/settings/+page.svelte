@@ -3,6 +3,8 @@
 	import { parseCountryList } from '$lib/countries';
 
 	let { data, form } = $props();
+	const MODEL_KEYS = ['llm_model_filter', 'llm_model_writer'];
+	let typing = $state<Record<string, boolean>>({}); // "Type an id" instead of picking from the list
 </script>
 
 <svelte:head><title>Settings · JobHunter</title></svelte:head>
@@ -11,6 +13,7 @@
 
 {#if form?.errors}<div class="flash">{#each form.errors as e}<div>{e}</div>{/each}</div>{/if}
 {#if form?.saved}<div class="flash">Saved. The next run uses the new values.</div>{/if}
+{#if form?.modelsLoaded}<div class="flash">Loaded {form.modelsLoaded} models from your AI provider, best first. Pick them below and save.</div>{/if}
 {#if form?.started}<div class="flash">{form.started}</div>{/if}
 
 <div class="card row">
@@ -83,10 +86,32 @@
 			</div>
 		{:else if kind === 'bool'}
 			<div class="checks"><label><input type="checkbox" name={key} checked={data.settings[key] === '1'} /> {label}</label></div>
+		{:else if MODEL_KEYS.includes(key) && data.models.length && !typing[key]}
+			{@const current = data.settings[key] ?? ''}
+			<div>
+				<label for={key}>{label}</label>
+				<div class="row">
+					<select id={key} name={key} value={current} class="grow">
+						{#if !current}<option value="">— choose —</option>{/if}
+						{#if current && !data.models.includes(current)}<option value={current}>{current} (not in the list)</option>{/if}
+						{#each data.models as m, i}<option value={m}>{m}{i === 0 ? ' — best' : ''}</option>{/each}
+					</select>
+					<button type="button" class="ghost small" onclick={() => (typing[key] = true)}>Type an id</button>
+				</div>
+			</div>
 		{:else}
 			<div>
 				<label for={key}>{label}</label>
-				<input id={key} name={key} type="text" inputmode={kind === 'text' ? 'text' : 'decimal'} value={data.settings[key] ?? ''} style="width: 100%" />
+				<div class="row">
+					<input id={key} name={key} type="text" inputmode={kind === 'text' ? 'text' : 'decimal'} value={data.settings[key] ?? ''} class="grow" style="width: 100%" />
+					{#if typing[key]}<button type="button" class="ghost small" onclick={() => (typing[key] = false)}>Pick from the list</button>{/if}
+				</div>
+			</div>
+		{/if}
+		{#if key === 'llm_model_writer'}
+			<div class="row">
+				<button class="secondary small" formaction="?/models">↻ Load the models from my AI provider</button>
+				<span class="muted small">{data.models.length ? `${data.models.length} models in the list, best first` : 'Not loaded yet. Uses the provider and key from Setup.'}</span>
 			</div>
 		{/if}
 	{/each}

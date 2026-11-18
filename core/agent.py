@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import os
 import sys
 import time
@@ -77,10 +78,47 @@ def load_llm_config() -> LLMConfig:
 
 
 def list_models(cfg: LLMConfig) -> list[str]:
-    """The model ids the provider offers (GET /models)."""
+    """The provider's chat models (GET /models), best first (rank_models)."""
     r = httpx.get(f"{cfg.base_url}/models", headers=_headers(cfg), timeout=30)
     r.raise_for_status()
-    return sorted(m["id"] for m in r.json().get("data", []) if m.get("id"))
+    return rank_models([m["id"] for m in r.json().get("data", []) if m.get("id")])
+
+
+# Models that can't hold a text conversation with tools (user request 2026-11-20: list only usable ones).
+_NOT_CHAT = re.compile(r"embed|image|imagen|veo|tts|audio|live|vision|aqa|learnlm|whisper|moderation|dall-e|"
+                       r"transcribe|robotics|computer-use|native|gemma", re.I)
+
+
+def _rank_key(model_id: str) -> tuple:
+    """Gemini: pro > flash > flash-lite, newest version first, stable before preview/exp. Other names
+    keep alphabetical order after them."""
+    name = model_id.lower().removeprefix("models/").split("/")[-1]
+    if "gemini" not in name:
+        return (9, 0, 0, name)
+    tier = 2 if "lite" in name else 1 if "flash" in name else 0 if "pro" in name else 3
+    m = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+    version = 99.0 if "latest" in name else float(m.group(1)) if m else 0.0
+    unstable = 1 if re.search(r"preview|exp", name) else 0
+    return (tier, unstable, -version, name)
+
+
+def rank_models(ids: list[str]) -> list[str]:
+    """Chat models, best first. If fewer than 2 remain, the whole list (sorted), so there's always a
+    choice for the two stages when the provider has two models at all."""
+    ids = sorted(set(ids))
+    chat = [i for i in ids if not _NOT_CHAT.search(i)]
+    return sorted(chat if len(chat) >= 2 else ids, key=_rank_key)
+
+
+def suggest_models(models: list[str]) -> dict[str, str]:
+    """First picks for a (possibly free) key: the best stable flash for writing and flash-lite for the
+    many scoring calls, since pro has the tightest free-tier limits. Otherwise the top two."""
+    stable = [m for m in models if not re.search(r"preview|exp", m, re.I)] or models
+    flash = [m for m in stable if "flash" in m.lower() and "lite" not in m.lower()]
+    lite = [m for m in stable if "flash-lite" in m.lower()]
+    writer = (flash or models or [""])[0]
+    scorer = (lite or flash or models[1:] or [writer])[0]
+    return {"llm_model_filter": scorer, "llm_model_writer": writer}
 
 
 def describe_error(e: Exception) -> str:

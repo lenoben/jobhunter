@@ -353,6 +353,29 @@ def cmd_setup_state(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_llm_models(args: argparse.Namespace) -> int:
+    """Asks the provider in .env for its chat models (best first), keeps the list for /settings and
+    prints it as JSON with first picks. No key in the output (R3)."""
+    import json
+
+    from core import agent, db
+
+    try:
+        models = agent.list_models(agent.load_llm_config())
+    except Exception as e:
+        print(json.dumps({"error": str(e) if isinstance(e, RuntimeError) else agent.describe_error(e)}))
+        return 1
+    conn = db.connect()
+    try:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('llm_models', ?) "
+                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (json.dumps(models),))
+        conn.commit()
+    finally:
+        conn.close()
+    print(json.dumps({"models": models, "suggested": agent.suggest_models(models)}))
+    return 0
+
+
 def cmd_setup_apply(args: argparse.Namespace) -> int:
     """Saves one step of the browser setup page. The step is JSON on stdin, so secrets never
     appear on a command line or in a file other than .env (R3)."""
@@ -647,6 +670,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_recruiters)
 
+    p = sub.add_parser("llm-models", help="List the AI provider's chat models, best first (JSON); kept for /settings")
+    p.add_argument("--json", action="store_true", help="Accepted for the UI; the output is always JSON")
+    p.set_defaults(func=cmd_llm_models)
     for name, func, text in (("setup-state", cmd_setup_state, "Print what the browser setup page shows (JSON, no secrets)"),
                              ("setup-apply", cmd_setup_apply, "Save one setup step given as JSON on stdin")):
         p = sub.add_parser(name, help=text)
