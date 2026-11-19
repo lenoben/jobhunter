@@ -790,10 +790,40 @@ the page, and an actual task removal.
 `setup.suggested_provider(env)` returns `gemini` when the saved provider is still the default
 `claude-code`, `claude` is not installed and no `LLM_API_KEY` is set; the wizard and `/setup` start
 there. `/setup` lists Gemini first ("free tier, recommended to start"), labels every provider, and
-preselects a Flash model for scoring and a Pro model for writing from the provider's list (only as
-the first pick; a saved choice wins). `.env.example` keeps `claude-code` (the owner's setup).
+preselects models from the provider's list (only as the first pick; a saved choice wins; since
+2026-11-20 Flash-Lite scores and Flash writes, §16i). `.env.example` keeps `claude-code` (the owner's setup).
 
 **Guide video** (`docs/video/`, its README): Remotion project, 39 scenes, English narration
 (edge-tts, voice Ava) with burned-in captions, built from a demo worktree with a made-up user.
 `scripts/demo_seed.py` refuses a main checkout. The demo's real folder path is swapped on screen
 (`DEMO_DIR`), because it contains the Windows user name.
+
+## 16i. Updater, ranked model lists, profile AI prompt (2026-11-20, user request)
+
+**`update.bat`** → `update.ps1` (ASCII, PowerShell 5.1): refuses while something listens on port
+5790 (JobHunter open); a git copy runs `git pull --ff-only`, anything else downloads
+`github.com/lenoben/jobhunter/archive/refs/heads/main.zip`, unpacks it with .NET `ZipFile`
+(`Expand-Archive` breaks when PowerShell 7's module path leaks into 5.1) and copies it over the
+folder with robocopy, excluding `profile data output logs .venv node_modules build .svelte-kit .git`
+and `.env` (the ZIP has none of them anyway). Files deleted upstream stay. Then it runs the new
+`install.ps1 -Update`: the same version checks, `uv sync`, `init-db` (migrations), `npm install`,
+build, no schedule question, and `run.bat` on the Jobs page. Tested 2026-11-20 in a throwaway folder
+with fake `.env`/profile/db (kept) and install stubbed; **not tested:** a full update end to end.
+
+**Model lists** (`core/agent.py`): `list_models` returns `rank_models(...)`: only chat models
+(drops embedding, image, TTS, audio, live, Gemma …), Gemini ranked pro > flash > flash-lite, newest
+and stable first; fewer than 2 left → the whole list, so the two stages always have a choice.
+`suggest_models` picks for a free key: the best stable Flash writes, Flash-Lite scores (most free
+requests; Pro has the tightest free limits). `/setup` and `cli.py setup` preselect it (a saved
+choice wins) and save the list as setting `llm_models` (JSON). `/settings` shows the two model
+fields as lists from it ("— best" on the first, "Type an id" for anything else) and **Load the
+models from my AI provider** (`cli.py llm-models`) refreshes it. Gemini is still the first pick only
+without Claude Code (§16h). Free-tier limits were not checked against Google's current table.
+
+**Profile AI prompt** (`ui/src/lib/server/profile.ts` `aiPrompt`): `/profile` → Whole profile
+(YAML) has **Copy prompt** + "Show the prompt". The prompt makes any AI chat interview the user
+topic by topic, ask follow-ups until it has comprehensive context, list what's still empty, then
+answer with only the YAML. It embeds `profile.example.yaml` (file comments dropped) and the active
+filter names for `motivation`. The YAML card opens by itself while the profile is empty.
+
+**Clickables:** one button system in `app.css` (ui/CLAUDE.md "Clickables").

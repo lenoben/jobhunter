@@ -1,6 +1,8 @@
 # Started by install.bat (double-click). Installs what JobHunter needs, builds the web UI and
 # starts it on the setup page (/setup), where the user enters accounts and keys. Safe to run again: finished parts are skipped or kept.
 # Keep this file ASCII: Windows PowerShell 5.1 reads a script without a BOM as ANSI.
+# -Update (from update.ps1): same steps, but no schedule question and JobHunter opens on the Jobs page.
+param([switch]$Update)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
@@ -66,6 +68,12 @@ try {
         Run 'Building the web UI' { npm run build }
     } finally { Pop-Location }
 
+    if ($Update) {
+        Say '6/6  Updated'
+        Write-Host 'Your settings, profile and jobs are kept. JobHunter opens in your browser.'
+        & (Join-Path $PSScriptRoot 'run.bat')
+        exit 0
+    }
     Say '5/6  Automatic runs'
     $answer = Read-Host 'Search for jobs automatically every day at 08:00 and 18:00? [Y/n]'
     if ($answer -notmatch '^\s*n') { & (Join-Path $PSScriptRoot 'setup-task.ps1') }
@@ -76,6 +84,7 @@ try {
     & (Join-Path $PSScriptRoot 'run.bat') /setup
 } catch {
     Write-Host "`n$($_.Exception.Message)" -ForegroundColor Red
-    Write-Host 'Close this window and double-click install.bat again. What is already done is kept.'
+    $again = if ($Update) { 'update.bat' } else { 'install.bat' }
+    Write-Host "Close this window and double-click $again again. What is already done is kept."
     exit 1
 }

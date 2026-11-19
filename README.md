@@ -148,6 +148,10 @@ use it. If the installer stops halfway, double-click `install.bat` again: what's
 To change a key or mailbox later: **Settings → Open setup**. To use Claude Code instead of an
 API key, install it first (Step 1 below) and log in once.
 
+**Update:** close JobHunter's window, then double-click **`update.bat`**. It downloads the newest
+version from GitHub (no git needed; in a git copy it runs `git pull`), installs it and opens
+JobHunter. Your `.env`, profile, jobs and documents are kept.
+
 **AI models:** with Google Gemini a free key is enough. Setup lists only Google's chat models, best
 first, and picks the Flash models for you (they have the most free requests per day). To change
 them later: **Settings → Load the models from my AI provider**, then pick from the list or type an id.
@@ -358,6 +362,8 @@ on jobs and sends them via Telegram. It is plain Python (no AI, no cost) and sho
 4. Click **Mark as applied**. JobHunter reminds you to follow up after 14 days.
 
 ### Updating
+
+Double-click `update.bat` (see above), or by hand:
 
 ```powershell
 git pull
